@@ -1,0 +1,1589 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Controle de Notas</title>
+<meta name="description" content="Controle de notas por pontos: veja quantos pontos faltam para passar em cada trimestre.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="color-scheme" content="light dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Notas">
+<meta name="theme-color" content="#f5f6f9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#12151b" media="(prefers-color-scheme: dark)">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+
+<style>
+  /* reset base (antes servido pelo harness do Artifact) */
+  *, *::before, *::after { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  img { max-width: 100%; }
+  [hidden] { display: none !important; }
+
+  /* ---------- Tokens: light (bare :root = complete light palette) ---------- */
+  :root {
+    --bg: #f5f6f9;
+    --surface: #ffffff;
+    --surface-2: #f0f2f6;
+    --ink: #1b2330;
+    --ink-2: #46505f;
+    --muted: #6b7585;
+    --line: #e2e5ec;
+    --line-strong: #cfd4de;
+
+    --accent: #3b5bdb;
+    --accent-ink: #ffffff;
+    --accent-soft: #ebeefc;
+
+    --good: #2b8a3e;
+    --good-soft: #e6f2e9;
+    --warn: #c76e0a;
+    --warn-soft: #f9efe0;
+    --bad: #c92a2a;
+    --bad-soft: #f9e8e8;
+
+    --shadow: 0 1px 2px rgba(20, 27, 41, .05), 0 8px 24px -12px rgba(20, 27, 41, .14);
+    --focus: 0 0 0 3px color-mix(in srgb, var(--accent) 40%, transparent);
+
+    --font-display: "Bricolage Grotesque", "Trebuchet MS", sans-serif;
+    --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+    --maxw: 980px;
+  }
+
+  /* System dark (no stamp) — only redefine tokens; explicit light OS-choice wins */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12151b;
+      --surface: #1a1e26;
+      --surface-2: #22272f;
+      --ink: #e8ebf1;
+      --ink-2: #b7bfcc;
+      --muted: #8b95a4;
+      --line: #2b313b;
+      --line-strong: #3a424e;
+
+      --accent: #8098f6;
+      --accent-ink: #10131a;
+      --accent-soft: #232a3d;
+
+      --good: #62c477;
+      --good-soft: #1c2a20;
+      --warn: #e0954a;
+      --warn-soft: #2c2415;
+      --bad: #f0797a;
+      --bad-soft: #2c1b1d;
+
+      --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 10px 30px -14px rgba(0, 0, 0, .55);
+      --focus: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent);
+    }
+  }
+
+  /* Explicit dark choice — toggle wins in both directions */
+  :root[data-theme="dark"] {
+    --bg: #12151b;
+    --surface: #1a1e26;
+    --surface-2: #22272f;
+    --ink: #e8ebf1;
+    --ink-2: #b7bfcc;
+    --muted: #8b95a4;
+    --line: #2b313b;
+    --line-strong: #3a424e;
+
+    --accent: #8098f6;
+    --accent-ink: #10131a;
+    --accent-soft: #232a3d;
+
+    --good: #62c477;
+    --good-soft: #1c2a20;
+    --warn: #e0954a;
+    --warn-soft: #2c2415;
+    --bad: #f0797a;
+    --bad-soft: #2c1b1d;
+
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 10px 30px -14px rgba(0, 0, 0, .55);
+    --focus: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3 { font-family: var(--font-display); font-weight: 700; margin: 0; text-wrap: balance; letter-spacing: -.01em; }
+
+  button { font-family: inherit; font-size: inherit; cursor: pointer; }
+  input, select { font-family: inherit; font-size: inherit; color: inherit; }
+
+  :focus-visible { outline: none; box-shadow: var(--focus); border-radius: 8px; }
+
+  .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+  /* ---------- Shell ---------- */
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 28px 20px 96px; }
+
+  .topbar { display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+  .brand h1 { font-size: 1.7rem; }
+  .topbar .spacer { flex: 1 1 auto; }
+
+  /* Perfil + estado de salvamento */
+  .profilebar {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    margin-top: 18px; padding: 10px 12px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+  }
+  .profilebar label { font-size: .72rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); font-weight: 700; }
+  .profilebar select {
+    height: 34px; padding: 0 10px; border-radius: 9px;
+    border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink);
+    font-weight: 600; max-width: 46vw;
+  }
+  .profilebar select:focus { outline: none; box-shadow: var(--focus); border-color: var(--accent); }
+  .icon-btn.sm { height: 34px; padding: 0 10px; font-size: .82rem; }
+  .profilebar .spacer { flex: 1 1 auto; }
+  .savestate { display: inline-flex; align-items: center; gap: 6px; font-size: .8rem; color: var(--muted); white-space: nowrap; }
+  .savestate svg { width: 14px; height: 14px; }
+  .savestate.ok { color: var(--good); }
+  .savestate.flash { color: var(--good); }
+  .savestate.bad { color: var(--bad); font-weight: 600; }
+  @media (max-width: 560px) {
+    .savestate { width: 100%; margin-top: 2px; }
+  }
+
+  .icon-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    height: 38px; padding: 0 14px;
+    background: var(--surface); color: var(--ink);
+    border: 1px solid var(--line-strong); border-radius: 10px;
+    font-weight: 500; white-space: nowrap;
+    transition: background .15s ease, border-color .15s ease, transform .05s ease;
+  }
+  .icon-btn:hover { background: var(--surface-2); }
+  .icon-btn:active { transform: translateY(1px); }
+  .icon-btn svg { width: 16px; height: 16px; }
+  .icon-btn.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+  .icon-btn.primary:hover { background: color-mix(in srgb, var(--accent) 88%, #000); }
+  .icon-btn.primary.danger { background: var(--bad); }
+  .icon-btn.primary.danger:hover { background: color-mix(in srgb, var(--bad) 85%, #000); }
+  .icon-btn.ghost { border-color: transparent; background: transparent; }
+  .icon-btn.ghost:hover { background: var(--surface-2); }
+  .icon-btn:disabled { opacity: .38; pointer-events: none; }
+
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  /* ---------- Tabs (períodos) ---------- */
+  .tabs-row { display: flex; align-items: center; gap: 10px; margin-top: 24px; flex-wrap: wrap; }
+  .tabs { display: flex; gap: 4px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 4px; flex-wrap: wrap; }
+  .tab {
+    border: 0; background: transparent; color: var(--ink-2);
+    padding: 7px 14px; border-radius: 8px; font-weight: 500;
+    transition: background .15s ease, color .15s ease;
+  }
+  .tab:hover { color: var(--ink); }
+  .tab[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+  .tab.ano[aria-selected="true"] { color: var(--accent); }
+
+  /* ---------- Summary tiles ---------- */
+  .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 20px; }
+  .tile {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: 14px 16px; display: flex; flex-direction: column; gap: 2px;
+  }
+  .tile .k { font-size: .72rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); font-weight: 600; }
+  .tile .v { font-family: var(--font-mono); font-size: 1.7rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .tile.is-good .v { color: var(--good); }
+  .tile.is-warn .v { color: var(--warn); }
+  .tile.is-bad .v { color: var(--bad); }
+
+  /* ---------- Legend ---------- */
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; margin: 22px 2px 10px; color: var(--muted); font-size: .82rem; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+  .sw-obt { background: var(--accent); }
+  .sw-abr { background: color-mix(in srgb, var(--ink-2) 45%, var(--surface)); }
+  .sw-dist { background: repeating-linear-gradient(45deg, var(--line-strong) 0 3px, transparent 3px 6px); border: 1px solid var(--line-strong); }
+  .sw-meta { width: 2px; height: 14px; border-radius: 1px; background: var(--ink); }
+
+  /* ---------- Cards ---------- */
+  .cards { display: flex; flex-direction: column; gap: 16px; margin-top: 6px; }
+
+  .card {
+    position: relative; overflow: hidden;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
+    padding: 18px 20px 18px 22px;
+    display: flex; flex-direction: column; gap: 14px;
+    box-shadow: var(--shadow);
+  }
+  .card::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+    background: var(--status, var(--line-strong));
+  }
+
+  .card-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .card-head h3 { font-size: 1.18rem; }
+  .card-head .sub { color: var(--muted); font-size: .85rem; }
+  .card-head .sub .mono { color: var(--ink-2); }
+  .card-head .spacer { flex: 1 1 auto; }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 999px;
+    font-size: .78rem; font-weight: 600; letter-spacing: .01em;
+    border: 1px solid transparent; white-space: nowrap;
+  }
+  .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .pill.ok { color: var(--good); background: var(--good-soft); border-color: color-mix(in srgb, var(--good) 25%, transparent); }
+  .pill.risco { color: var(--warn); background: var(--warn-soft); border-color: color-mix(in srgb, var(--warn) 25%, transparent); }
+  .pill.fora { color: var(--bad); background: var(--bad-soft); border-color: color-mix(in srgb, var(--bad) 25%, transparent); }
+
+  /* Points bar */
+  .bar-wrap { position: relative; padding-top: 18px; }
+  .bar {
+    position: relative; display: flex; gap: 2px;
+    height: 20px; border-radius: 6px; overflow: hidden;
+    background: var(--surface-2);
+  }
+  .seg { height: 100%; min-width: 0; }
+  .seg.obt { background: var(--accent); }
+  .seg.abr { background: color-mix(in srgb, var(--ink-2) 45%, var(--surface)); }
+  .seg.dist { background: repeating-linear-gradient(45deg, var(--line-strong) 0 4px, transparent 4px 8px); }
+  .seg:first-child { border-top-left-radius: 6px; border-bottom-left-radius: 6px; }
+  .seg:last-child { border-top-right-radius: 6px; border-bottom-right-radius: 6px; }
+  .meta-mark {
+    position: absolute; top: 12px; bottom: 0; width: 2px; background: var(--ink);
+    transform: translateX(-1px);
+  }
+  .meta-mark::after {
+    content: "passar: " attr(data-pts);
+    position: absolute; top: -18px; left: 50%; transform: translateX(-50%);
+    font-family: var(--font-mono); font-size: .68rem; color: var(--ink-2);
+    white-space: nowrap; background: var(--surface); padding: 0 4px;
+  }
+
+  /* Stat chips */
+  .stats { display: flex; flex-wrap: wrap; gap: 8px 10px; }
+  .stat {
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px;
+    padding: 7px 11px; min-width: 92px;
+  }
+  .stat .k { font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+  .stat .v { font-family: var(--font-mono); font-size: 1.02rem; font-weight: 600; font-variant-numeric: tabular-nums; margin-top: 1px; }
+  .stat.hl-warn { background: var(--warn-soft); border-color: color-mix(in srgb, var(--warn) 22%, transparent); }
+  .stat.hl-warn .v { color: var(--warn); }
+  .stat.hl-good { background: var(--good-soft); border-color: color-mix(in srgb, var(--good) 22%, transparent); }
+  .stat.hl-good .v { color: var(--good); }
+  .stat.hl-bad { background: var(--bad-soft); border-color: color-mix(in srgb, var(--bad) 22%, transparent); }
+  .stat.hl-bad .v { color: var(--bad); }
+
+  .callout {
+    border-radius: 10px; padding: 11px 14px; font-size: .9rem;
+    border: 1px solid var(--line); background: var(--surface-2); color: var(--ink-2);
+  }
+  .callout.ok { background: var(--good-soft); border-color: color-mix(in srgb, var(--good) 22%, transparent); color: color-mix(in srgb, var(--good) 65%, var(--ink)); }
+  .callout.risco { background: var(--warn-soft); border-color: color-mix(in srgb, var(--warn) 22%, transparent); color: color-mix(in srgb, var(--warn) 62%, var(--ink)); }
+  .callout.fora { background: var(--bad-soft); border-color: color-mix(in srgb, var(--bad) 22%, transparent); color: color-mix(in srgb, var(--bad) 62%, var(--ink)); }
+  .callout strong { font-weight: 600; }
+  .callout .warn-extra { display: block; margin-top: 5px; font-size: .82rem; opacity: .9; }
+
+  /* Avaliações */
+  details.avals { border-top: 1px solid var(--line); padding-top: 12px; }
+  details.avals > summary {
+    list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px;
+    font-weight: 600; font-size: .9rem; color: var(--ink-2);
+  }
+  details.avals > summary::-webkit-details-marker { display: none; }
+  details.avals > summary .chev { transition: transform .15s ease; width: 15px; height: 15px; color: var(--muted); }
+  details.avals[open] > summary .chev { transform: rotate(90deg); }
+  details.avals > summary .count { color: var(--muted); font-weight: 500; }
+
+  .aval-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+  .aval-row {
+    display: grid;
+    grid-template-columns: 1fr auto auto auto auto;
+    align-items: center; gap: 10px;
+    padding: 8px 10px; border: 1px solid var(--line); border-radius: 9px;
+    background: var(--surface);
+  }
+  .aval-row .desc { font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
+  .aval-row .tag { font-size: .68rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+  .aval-row .num { font-family: var(--font-mono); font-size: .86rem; color: var(--ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .aval-row .num b { color: var(--ink); font-weight: 600; }
+  .aval-row .num.pend { color: var(--warn); }
+  .aval-row .date { font-family: var(--font-mono); font-size: .8rem; color: var(--muted); white-space: nowrap; }
+  .row-act { display: inline-flex; gap: 2px; }
+  .row-act button {
+    border: 0; background: transparent; color: var(--muted); border-radius: 7px;
+    width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center;
+  }
+  .row-act button:hover { background: var(--surface-2); color: var(--ink); }
+  .row-act button.del:hover { background: var(--bad-soft); color: var(--bad); }
+  .row-act svg { width: 15px; height: 15px; }
+
+  .add-aval {
+    margin-top: 8px; width: 100%; height: 38px;
+    border: 1px dashed var(--line-strong); border-radius: 9px;
+    background: transparent; color: var(--ink-2); font-weight: 500;
+    display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  }
+  .add-aval:hover { background: var(--surface-2); color: var(--ink); border-color: var(--accent); }
+  .add-aval svg { width: 15px; height: 15px; }
+
+  .empty-avals { color: var(--muted); font-size: .88rem; margin-top: 8px; }
+
+  .ano-group-label {
+    font-size: .7rem; text-transform: uppercase; letter-spacing: .07em;
+    color: var(--muted); font-weight: 700; margin: 12px 0 4px;
+  }
+  .ano-group-label:first-child { margin-top: 4px; }
+
+  /* Empty state */
+  .empty {
+    text-align: center; padding: 56px 20px; border: 1px dashed var(--line-strong);
+    border-radius: 16px; background: var(--surface); color: var(--muted);
+  }
+  .empty h3 { color: var(--ink); font-size: 1.15rem; margin-bottom: 6px; }
+  .empty p { margin: 0 0 16px; }
+
+  /* ---------- Dialog ---------- */
+  dialog {
+    border: 1px solid var(--line); border-radius: 16px; padding: 0;
+    background: var(--surface); color: var(--ink);
+    width: min(92vw, 460px); box-shadow: 0 24px 60px -20px rgba(0,0,0,.4);
+  }
+  dialog::backdrop { background: rgba(12, 15, 22, .5); backdrop-filter: blur(2px); }
+  .dlg-head { display: flex; align-items: center; gap: 10px; padding: 18px 20px 12px; }
+  .dlg-head h3 { font-size: 1.1rem; }
+  .dlg-head .spacer { flex: 1; }
+  .dlg-body { padding: 4px 20px 8px; display: flex; flex-direction: column; gap: 14px; }
+  .dlg-foot { display: flex; gap: 8px; padding: 14px 20px 18px; }
+  .dlg-foot .spacer { flex: 1; }
+
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label { font-size: .8rem; font-weight: 600; color: var(--ink-2); }
+  .field .hint { font-size: .74rem; color: var(--muted); }
+  .field input[type="text"], .field input[type="date"], .field input[type="number"], .field select {
+    height: 38px; padding: 0 11px; border-radius: 9px;
+    border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink);
+  }
+  .field input:focus, .field select:focus { outline: none; box-shadow: var(--focus); border-color: var(--accent); }
+  .field.two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .field.two > div { display: flex; flex-direction: column; gap: 5px; }
+  .check { display: flex; align-items: center; gap: 8px; font-size: .88rem; color: var(--ink-2); }
+  .check input { width: 16px; height: 16px; accent-color: var(--accent); }
+  .field-error { color: var(--bad); font-size: .78rem; min-height: 0; }
+
+  .per-editor { display: flex; flex-direction: column; gap: 8px; }
+  .per-item { display: flex; gap: 8px; align-items: center; }
+  .per-item input { flex: 1; min-width: 0; }
+  .per-item .per-total { flex: 0 0 76px; text-align: right; }
+  .per-item button {
+    width: 34px; height: 38px; border-radius: 9px; border: 1px solid var(--line-strong);
+    background: var(--surface); color: var(--muted);
+  }
+  .per-item button:hover { background: var(--bad-soft); color: var(--bad); border-color: color-mix(in srgb, var(--bad) 30%, transparent); }
+
+  textarea.backup {
+    width: 100%; min-height: 130px; resize: vertical;
+    font-family: var(--font-mono); font-size: .8rem; line-height: 1.5;
+    padding: 10px 12px; border-radius: 10px;
+    border: 1px solid var(--line-strong); background: var(--surface-2); color: var(--ink);
+  }
+  textarea.backup:focus { outline: none; box-shadow: var(--focus); border-color: var(--accent); }
+
+  .danger-link {
+    background: transparent; border: 0; color: var(--bad); font-weight: 600; font-size: .84rem;
+    padding: 4px 2px;
+  }
+  .danger-link:hover { text-decoration: underline; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(8px);
+    background: var(--ink); color: var(--bg);
+    padding: 10px 18px; border-radius: 999px; font-size: .86rem; font-weight: 500;
+    opacity: 0; pointer-events: none; transition: opacity .2s ease, transform .2s ease;
+    z-index: 50;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  @media (max-width: 640px) {
+    .tiles { grid-template-columns: repeat(2, 1fr); }
+    .aval-row { grid-template-columns: 1fr auto; grid-auto-rows: auto; }
+    .aval-row .num, .aval-row .date { grid-column: 1 / -1; }
+    .aval-row .row-act { grid-column: 2; grid-row: 1; }
+    .brand h1 { font-size: 1.45rem; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="topbar">
+    <div class="brand">
+      <h1>Controle de Notas</h1>
+    </div>
+    <div class="spacer"></div>
+    <div class="actions">
+      <button class="icon-btn primary" id="btn-nova-materia">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        Nova matéria
+      </button>
+      <button class="icon-btn" id="btn-save">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
+        Salvar
+      </button>
+      <button class="icon-btn" id="btn-config">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 8 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 3.6 15a1.65 1.65 0 0 0-1.51-1H2a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 3.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 8 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09A1.65 1.65 0 0 0 16 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.2.63.77 1.06 1.42 1.09H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Configurações
+      </button>
+      <button class="icon-btn ghost" id="btn-theme" aria-label="Alternar tema claro e escuro">
+        <svg id="ic-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        <svg id="ic-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" hidden><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="profilebar">
+    <label for="profile-sel">Perfil</label>
+    <select id="profile-sel" aria-label="Escolher perfil"></select>
+    <button class="icon-btn ghost sm" id="profile-new" type="button">+ Novo</button>
+    <button class="icon-btn ghost sm" id="profile-ren" type="button">Renomear</button>
+    <button class="icon-btn ghost sm" id="profile-del" type="button">Excluir</button>
+    <span class="spacer"></span>
+    <span class="savestate" id="savestate"></span>
+  </div>
+
+  <div class="tabs-row">
+    <div class="tabs" id="tabs" role="tablist" aria-label="Trimestres"></div>
+  </div>
+
+  <section class="tiles" id="tiles" aria-label="Resumo"></section>
+
+  <div class="legend" aria-hidden="true">
+    <span><i class="swatch sw-obt"></i> pontos obtidos</span>
+    <span><i class="swatch sw-abr"></i> avaliações a fazer</span>
+    <span><i class="swatch sw-dist"></i> pontos a distribuir</span>
+    <span><i class="swatch sw-meta"></i> pontos para passar</span>
+  </div>
+
+  <main class="cards" id="cards"></main>
+</div>
+
+<!-- ---------- Dialog: matéria ---------- -->
+<dialog id="dlg-materia">
+  <form method="dialog" id="form-materia">
+    <div class="dlg-head"><h3 id="dlg-materia-title">Nova matéria</h3><div class="spacer"></div></div>
+    <div class="dlg-body">
+      <div class="field">
+        <label for="mat-nome">Nome da matéria</label>
+        <input type="text" id="mat-nome" autocomplete="off" maxlength="60" placeholder="Ex.: Matemática">
+      </div>
+      <div class="field">
+        <label for="mat-total">Total de pontos desta matéria no trimestre</label>
+        <input type="number" id="mat-total" min="1" step="1" inputmode="numeric">
+        <span class="hint" id="mat-total-hint"></span>
+      </div>
+      <p class="field-error" id="mat-err"></p>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" class="danger-link" id="mat-excluir" hidden>Excluir matéria</button>
+      <div class="spacer"></div>
+      <button type="button" class="icon-btn ghost" data-close>Cancelar</button>
+      <button type="submit" class="icon-btn primary">Salvar</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ---------- Dialog: avaliação ---------- -->
+<dialog id="dlg-aval">
+  <form method="dialog" id="form-aval">
+    <div class="dlg-head"><h3 id="dlg-aval-title">Nova avaliação</h3><div class="spacer"></div></div>
+    <div class="dlg-body">
+      <div class="field">
+        <label for="av-desc">Descrição</label>
+        <input type="text" id="av-desc" autocomplete="off" maxlength="80" placeholder="Ex.: Prova 1, Trabalho, Seminário">
+      </div>
+      <div class="field two">
+        <div>
+          <label for="av-periodo">Trimestre</label>
+          <select id="av-periodo"></select>
+        </div>
+        <div>
+          <label for="av-valor">Vale quantos pontos?</label>
+          <input type="text" id="av-valor" inputmode="decimal" autocomplete="off" placeholder="Ex.: 30">
+        </div>
+      </div>
+      <label class="check"><input type="checkbox" id="av-feita"> Já fiz esta avaliação — lançar nota</label>
+      <div class="field two" id="av-nota-wrap" hidden>
+        <div>
+          <label for="av-nota">Nota obtida (pontos)</label>
+          <input type="text" id="av-nota" inputmode="decimal" autocomplete="off" placeholder="Ex.: 21">
+        </div>
+        <div>
+          <label for="av-data">Data (opcional)</label>
+          <input type="date" id="av-data">
+        </div>
+      </div>
+      <p class="field-error" id="av-err"></p>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" class="danger-link" id="av-excluir" hidden>Excluir avaliação</button>
+      <div class="spacer"></div>
+      <button type="button" class="icon-btn ghost" data-close>Cancelar</button>
+      <button type="submit" class="icon-btn primary">Salvar</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ---------- Dialog: configurações ---------- -->
+<dialog id="dlg-config">
+  <form method="dialog" id="form-config">
+    <div class="dlg-head"><h3>Configurações</h3><div class="spacer"></div></div>
+    <div class="dlg-body">
+      <div class="field">
+        <label for="cfg-meta">Quanto precisa pra passar (%)</label>
+        <input type="number" id="cfg-meta" min="1" max="100" step="1" inputmode="numeric">
+        <span class="hint">Percentual do total de cada trimestre. Ex.: 60% de 100 pontos = 60 pontos pra passar.</span>
+      </div>
+      <div class="field">
+        <label>Trimestres e total de pontos</label>
+        <span class="hint">Cada trimestre tem seu próprio total. Renomeie, ajuste o total, adicione ou remova. Remover um trimestre apaga as avaliações lançadas nele.</span>
+        <div class="per-editor" id="per-editor"></div>
+        <button type="button" class="add-aval" id="cfg-add-per" style="margin-top:10px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          Adicionar trimestre
+        </button>
+      </div>
+      <p class="field-error" id="cfg-err"></p>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" class="danger-link" id="cfg-limpar">Limpar tudo</button>
+      <div class="spacer"></div>
+      <button type="button" class="icon-btn ghost" data-close>Cancelar</button>
+      <button type="submit" class="icon-btn primary">Salvar</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ---------- Dialog: backup ---------- -->
+<dialog id="dlg-confirm">
+  <div class="dlg-head"><h3>Confirmar</h3><div class="spacer"></div></div>
+  <div class="dlg-body">
+    <p id="confirm-msg" style="margin:0;color:var(--ink-2);font-size:.95rem"></p>
+  </div>
+  <div class="dlg-foot">
+    <div class="spacer"></div>
+    <button type="button" class="icon-btn ghost" id="confirm-no">Cancelar</button>
+    <button type="button" class="icon-btn primary" id="confirm-yes">Confirmar</button>
+  </div>
+</dialog>
+
+<dialog id="dlg-profile">
+  <form method="dialog" id="form-profile">
+    <div class="dlg-head"><h3 id="dlg-profile-title">Novo perfil</h3><div class="spacer"></div></div>
+    <div class="dlg-body">
+      <div class="field">
+        <label for="prof-nome">Nome de quem vai usar</label>
+        <input type="text" id="prof-nome" autocomplete="off" maxlength="40" placeholder="Ex.: Fulano">
+        <span class="hint">Cada perfil guarda suas próprias matérias e notas, separado dos outros, neste aparelho.</span>
+      </div>
+      <p class="field-error" id="prof-err"></p>
+    </div>
+    <div class="dlg-foot">
+      <div class="spacer"></div>
+      <button type="button" class="icon-btn ghost" data-close>Cancelar</button>
+      <button type="submit" class="icon-btn primary">Salvar</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  var LS_KEY = "controle-notas-v2";
+  var LS_KEY_OLD = "controle-notas-v1";
+  var LS_THEME = "controle-notas-theme";
+
+  var storageOK = (function () {
+    try { localStorage.setItem("__cn_t__", "1"); localStorage.removeItem("__cn_t__"); return true; }
+    catch (e) { return false; }
+  })();
+
+  // ---------- utils ----------
+  function uid() { return Math.random().toString(36).slice(2, 9); }
+  var nf = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 });
+  var pf = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
+  function fmt(n) { return nf.format(Math.round(n * 100) / 100); }
+  function pct(n) { return pf.format(Math.round(n)); }
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function sum(arr) { var t = 0; for (var i = 0; i < arr.length; i++) t += arr[i]; return t; }
+  function parseNum(str) {
+    if (str == null) return NaN;
+    var s = String(str).trim();
+    if (s === "") return null;
+    var n = parseFloat(s.replace(",", "."));
+    return isNaN(n) ? NaN : n;
+  }
+  function fmtDate(iso) {
+    if (!iso) return "";
+    var p = iso.split("-");
+    if (p.length !== 3) return iso;
+    return p[2] + "/" + p[1] + "/" + p[0];
+  }
+
+  var toastTimer;
+  function toast(msg) {
+    var t = document.getElementById("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove("show"); }, 2200);
+  }
+
+  // ---------- state ----------
+  var wrap = null;  // { v, activeId, profiles:[{id,nome,data}] }
+  var state = null; // = perfil ativo .data
+  var view = null;  // periodo id or "ano"
+
+  function emptyState() {
+    return {
+      version: 1, meta: 60, defaultTotal: 100,
+      periodos: [
+        { id: uid(), nome: "1º Trimestre", total: 100 },
+        { id: uid(), nome: "2º Trimestre", total: 100 },
+        { id: uid(), nome: "3º Trimestre", total: 100 }
+      ],
+      materias: []
+    };
+  }
+
+  function seed() {
+    var p1 = uid(), p2 = uid(), p3 = uid();
+    return {
+      version: 1,
+      meta: 60,
+      defaultTotal: 100,
+      periodos: [
+        { id: p1, nome: "1º Trimestre", total: 100 },
+        { id: p2, nome: "2º Trimestre", total: 100 },
+        { id: p3, nome: "3º Trimestre", total: 100 }
+      ],
+      materias: [
+        { id: uid(), nome: "Matemática", totais: {}, avaliacoes: [
+          { id: uid(), periodoId: p1, descricao: "Prova 1", valor: 30, nota: 19, data: "2026-03-12" },
+          { id: uid(), periodoId: p1, descricao: "Trabalho em grupo", valor: 20, nota: 16, data: "2026-03-28" },
+          { id: uid(), periodoId: p1, descricao: "Prova 2", valor: 30, nota: null, data: null }
+        ] },
+        { id: uid(), nome: "História", totais: {}, avaliacoes: [
+          { id: uid(), periodoId: p1, descricao: "Resenha crítica", valor: 15, nota: 14, data: "2026-03-10" },
+          { id: uid(), periodoId: p1, descricao: "Prova 1", valor: 35, nota: 33, data: "2026-03-20" },
+          { id: uid(), periodoId: p1, descricao: "Seminário", valor: 30, nota: 27, data: "2026-04-05" }
+        ] },
+        { id: uid(), nome: "Biologia", totais: {}, avaliacoes: [
+          { id: uid(), periodoId: p1, descricao: "Prova 1", valor: 40, nota: 20, data: "2026-03-18" },
+          { id: uid(), periodoId: p1, descricao: "Relatório de laboratório", valor: 20, nota: 9, data: "2026-03-25" }
+        ] }
+      ]
+    };
+  }
+
+  function validShape(o) {
+    return o && typeof o === "object" &&
+      Array.isArray(o.periodos) && Array.isArray(o.materias);
+  }
+
+  // wrap = { v: 2, activeId, profiles: [ { id, nome, data } ] }
+  function loadAll() {
+    try {
+      var raw = localStorage.getItem(LS_KEY);
+      if (raw) {
+        var w = JSON.parse(raw);
+        if (w && Array.isArray(w.profiles) && w.profiles.length) {
+          w.profiles.forEach(function (p) {
+            if (!p.id) p.id = uid();
+            p.nome = String(p.nome || "Perfil");
+            p.data = validShape(p.data) ? normalize(p.data) : emptyState();
+          });
+          if (!w.profiles.some(function (p) { return p.id === w.activeId; })) w.activeId = w.profiles[0].id;
+          return w;
+        }
+      }
+    } catch (e) {}
+    try {
+      var old = localStorage.getItem(LS_KEY_OLD);
+      if (old) {
+        var parsed = JSON.parse(old);
+        if (validShape(parsed)) {
+          var mid = uid();
+          return { v: 2, activeId: mid, profiles: [{ id: mid, nome: "Meu perfil", data: normalize(parsed) }] };
+        }
+      }
+    } catch (e) {}
+    var eid = uid();
+    return { v: 2, activeId: eid, profiles: [{ id: eid, nome: "Exemplo", data: seed() }] };
+  }
+
+  function activeProfile() {
+    return wrap.profiles.find(function (p) { return p.id === wrap.activeId; }) || wrap.profiles[0];
+  }
+
+  function normalize(o) {
+    o.meta = typeof o.meta === "number" && o.meta > 0 ? o.meta : 60;
+    o.defaultTotal = typeof o.defaultTotal === "number" && o.defaultTotal > 0 ? o.defaultTotal : 100;
+    if (!o.periodos.length) o.periodos = [{ id: uid(), nome: "1º Trimestre", total: 100 }];
+    var fallbackTotal = (typeof o.defaultTotal === "number" && o.defaultTotal > 0) ? o.defaultTotal : 100;
+    o.periodos.forEach(function (p) {
+      if (!p.id) p.id = uid();
+      p.nome = String(p.nome || "Trimestre");
+      p.total = (typeof p.total === "number" && p.total > 0) ? p.total : fallbackTotal;
+    });
+    var pids = {};
+    o.periodos.forEach(function (p) { pids[p.id] = true; });
+    o.materias.forEach(function (m) {
+      if (!m.id) m.id = uid();
+      m.nome = String(m.nome || "Matéria");
+      if (!m.totais || typeof m.totais !== "object") m.totais = {};
+      if (!Array.isArray(m.avaliacoes)) m.avaliacoes = [];
+      m.avaliacoes.forEach(function (a) {
+        if (!a.id) a.id = uid();
+        if (!pids[a.periodoId]) a.periodoId = o.periodos[0].id;
+        a.valor = Number(a.valor) || 0;
+        a.nota = (a.nota === null || a.nota === undefined || a.nota === "") ? null : Number(a.nota);
+        a.data = a.data || null;
+        a.descricao = String(a.descricao || "Avaliação");
+      });
+    });
+    return o;
+  }
+
+  function save() {
+    if (!storageOK) { renderSaveState(); return; }
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify(wrap));
+      flashSaved();
+    } catch (e) {
+      storageOK = false;
+      renderSaveState();
+      toast("Não foi possível salvar neste navegador.");
+    }
+  }
+
+  var saveFlashTimer;
+  var CHK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+  var WRN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 2 18a2 2 0 0 0 1.7 3h16.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>';
+  function flashSaved() {
+    var el = document.getElementById("savestate");
+    if (!el) return;
+    el.className = "savestate flash";
+    el.innerHTML = CHK + "<span>Salvo</span>";
+    clearTimeout(saveFlashTimer);
+    saveFlashTimer = setTimeout(renderSaveState, 1400);
+  }
+  function renderSaveState() {
+    var el = document.getElementById("savestate");
+    if (!el) return;
+    if (storageOK) {
+      el.className = "savestate ok";
+      el.innerHTML = CHK + "<span>Salvo neste aparelho</span>";
+    } else {
+      el.className = "savestate bad";
+      el.innerHTML = WRN + "<span>Sem salvar (aba privada?)</span>";
+    }
+  }
+
+  // ---------- calculations ----------
+  function periodoTotal(periodoId) {
+    var p = state.periodos.find(function (x) { return x.id === periodoId; });
+    if (p && typeof p.total === "number" && p.total > 0) return p.total;
+    return (typeof state.defaultTotal === "number" && state.defaultTotal > 0) ? state.defaultTotal : 100;
+  }
+
+  function totalDe(m, periodoId) {
+    var ov = m.totais[periodoId];
+    return (typeof ov === "number" && ov > 0) ? ov : periodoTotal(periodoId);
+  }
+
+  function calcPeriodo(m, periodoId) {
+    var avals = m.avaliacoes.filter(function (a) { return a.periodoId === periodoId; });
+    return computeFrom(avals, totalDe(m, periodoId));
+  }
+
+  function calcAno(m) {
+    var total = 0;
+    var avals = [];
+    state.periodos.forEach(function (p) {
+      total += totalDe(m, p.id);
+      avals = avals.concat(m.avaliacoes.filter(function (a) { return a.periodoId === p.id; }));
+    });
+    return computeFrom(avals, total);
+  }
+
+  function computeFrom(avals, total) {
+    var graded = avals.filter(function (a) { return a.nota !== null && !isNaN(a.nota); });
+    var distribuido = sum(avals.map(function (a) { return a.valor; }));
+    var obtidos = sum(graded.map(function (a) { return a.nota; }));
+    var valorGraded = sum(graded.map(function (a) { return a.valor; }));
+    var emAberto = sum(avals.filter(function (a) { return a.nota === null; }).map(function (a) { return a.valor; }));
+    var aDistribuir = Math.max(0, total - distribuido);
+    var excedente = Math.max(0, distribuido - total);
+    var emJogo = emAberto + aDistribuir;
+    var metaPts = total * state.meta / 100;
+    var faltaPts = Math.max(0, metaPts - obtidos);
+    var maxPossivel = obtidos + emJogo;
+
+    var status;
+    if (obtidos >= metaPts) status = "ok";
+    else if (maxPossivel >= metaPts) status = "risco";
+    else status = "fora";
+
+    return {
+      avals: avals, total: total, distribuido: distribuido, obtidos: obtidos,
+      valorGraded: valorGraded, emAberto: emAberto, aDistribuir: aDistribuir,
+      excedente: excedente, emJogo: emJogo, metaPts: metaPts, faltaPts: faltaPts,
+      maxPossivel: maxPossivel, status: status,
+      necessarioPct: emJogo > 0 ? (faltaPts / emJogo) * 100 : null,
+      aproveitamento: valorGraded > 0 ? (obtidos / valorGraded) * 100 : null,
+      escala10: total > 0 ? (obtidos / total) * 10 : 0,
+      ptsNecessarios: Math.ceil(faltaPts)
+    };
+  }
+
+  var STATUS_META = {
+    ok:    { pill: "Passou", tokenVar: "--good" },
+    risco: { pill: "Faltam pontos", tokenVar: "--warn" },
+    fora:  { pill: "Não dá mais", tokenVar: "--bad" }
+  };
+
+  // ---------- render ----------
+  function render() {
+    var periodExists = state.periodos.some(function (p) { return p.id === view; });
+    if (view !== "ano" && !periodExists) view = state.periodos[0].id;
+
+    renderTabs();
+    renderTiles();
+    renderCards();
+  }
+
+  function renderTabs() {
+    var el = document.getElementById("tabs");
+    var html = state.periodos.map(function (p) {
+      return '<button class="tab" role="tab" data-per="' + p.id + '" aria-selected="' +
+        (view === p.id) + '">' + esc(p.nome) + "</button>";
+    }).join("");
+    html += '<button class="tab ano" role="tab" data-per="ano" aria-selected="' +
+      (view === "ano") + '">Ano todo</button>';
+    el.innerHTML = html;
+    Array.prototype.forEach.call(el.querySelectorAll(".tab"), function (b) {
+      b.addEventListener("click", function () {
+        view = b.getAttribute("data-per");
+        render();
+      });
+    });
+  }
+
+  function renderTiles() {
+    var el = document.getElementById("tiles");
+    var isAno = view === "ano";
+    var results = state.materias.map(function (m) {
+      return isAno ? calcAno(m) : calcPeriodo(m, view);
+    });
+    var nOk = results.filter(function (r) { return r.status === "ok"; }).length;
+    var nRisco = results.filter(function (r) { return r.status === "risco"; }).length;
+    var nFora = results.filter(function (r) { return r.status === "fora"; }).length;
+
+    var tiles = [
+      { k: "Matérias", v: state.materias.length, cls: "" },
+      { k: "Já passou", v: nOk, cls: nOk ? "is-good" : "" },
+      { k: "Faltam pontos", v: nRisco, cls: nRisco ? "is-warn" : "" },
+      { k: "Não dá mais", v: nFora, cls: nFora ? "is-bad" : "" }
+    ];
+    el.innerHTML = tiles.map(function (t) {
+      return '<div class="tile ' + t.cls + '"><span class="k">' + t.k +
+        '</span><span class="v">' + t.v + "</span></div>";
+    }).join("");
+  }
+
+  function renderCards() {
+    var el = document.getElementById("cards");
+    var isAno = view === "ano";
+
+    if (!state.materias.length) {
+      el.innerHTML =
+        '<div class="empty"><h3>Nenhuma matéria ainda</h3>' +
+        "<p>Adicione a primeira matéria para começar a lançar notas.</p>" +
+        '<button class="icon-btn primary" id="empty-add">Nova matéria</button></div>';
+      document.getElementById("empty-add").addEventListener("click", openNovaMateria);
+      return;
+    }
+
+    el.innerHTML = state.materias.map(function (m) {
+      return renderCard(m, isAno);
+    }).join("");
+
+    // wire events
+    Array.prototype.forEach.call(el.querySelectorAll("[data-edit-materia]"), function (b) {
+      b.addEventListener("click", function () { openEditMateria(b.getAttribute("data-edit-materia")); });
+    });
+    Array.prototype.forEach.call(el.querySelectorAll("[data-add-aval]"), function (b) {
+      b.addEventListener("click", function () { openNovaAval(b.getAttribute("data-add-aval")); });
+    });
+    Array.prototype.forEach.call(el.querySelectorAll("[data-edit-aval]"), function (b) {
+      b.addEventListener("click", function () {
+        openEditAval(b.getAttribute("data-mat"), b.getAttribute("data-edit-aval"));
+      });
+    });
+    Array.prototype.forEach.call(el.querySelectorAll("[data-del-aval]"), function (b) {
+      b.addEventListener("click", function () {
+        delAval(b.getAttribute("data-mat"), b.getAttribute("data-del-aval"));
+      });
+    });
+  }
+
+  function renderCard(m, isAno) {
+    var c = isAno ? calcAno(m) : calcPeriodo(m, view);
+    var sm = STATUS_META[c.status];
+    var statusColor = "var(" + sm.tokenVar + ")";
+
+    // ----- points bar -----
+    var basis = Math.max(c.total, c.distribuido, 1);
+    var wObt = (c.obtidos / basis) * 100;
+    var wAbr = (c.emAberto / basis) * 100;
+    var wDist = (c.aDistribuir / basis) * 100;
+    var metaLeft = Math.min(100, (c.metaPts / basis) * 100);
+
+    var segs = "";
+    if (wObt > 0.01) segs += '<div class="seg obt" style="flex:0 0 ' + wObt + '%"></div>';
+    if (wAbr > 0.01) segs += '<div class="seg abr" style="flex:0 0 ' + wAbr + '%"></div>';
+    if (wDist > 0.01) segs += '<div class="seg dist" style="flex:0 0 ' + wDist + '%"></div>';
+    if (!segs) segs = '<div class="seg" style="flex:1"></div>';
+
+    var bar =
+      '<div class="bar-wrap">' +
+        '<div class="meta-mark" data-pts="' + fmt(c.metaPts) + '" style="left:' + metaLeft + '%"></div>' +
+        '<div class="bar" role="img" aria-label="' +
+          fmt(c.obtidos) + " de " + fmt(c.total) + ' pontos; para passar ' + fmt(c.metaPts) + '">' +
+          segs +
+        "</div>" +
+      "</div>";
+
+    // ----- stat chips -----
+    var chips = [];
+    chips.push(chip("Obtidos", fmt(c.obtidos) + " / " + fmt(c.total), ""));
+    chips.push(chip("Equivale a", fmt(c.escala10).replace(".", ",") + " / 10", ""));
+    chips.push(chip("Aproveitamento", c.aproveitamento === null ? "—" : pct(c.aproveitamento) + "%", ""));
+    if (c.status === "ok") {
+      chips.push(chip("Falta pra passar", "já passou", "hl-good"));
+    } else if (c.status === "risco") {
+      chips.push(chip("Falta pra passar", c.ptsNecessarios + " pts", "hl-warn"));
+      chips.push(chip("Precisa tirar", pct(Math.ceil(c.necessarioPct)) + "% do que resta", "hl-warn"));
+    } else {
+      chips.push(chip("Falta pra passar", fmt(c.faltaPts) + " pts", "hl-bad"));
+      chips.push(chip("Máx. possível", fmt(c.maxPossivel) + " pts", "hl-bad"));
+    }
+
+    // ----- callout -----
+    var callout;
+    if (c.avals.length === 0) {
+      callout = "Nenhuma avaliação lançada " + (isAno ? "no ano." : "neste trimestre.");
+    } else if (c.status === "ok") {
+      callout = "<strong>Você já passou.</strong> São " + fmt(c.obtidos) +
+        " pts, e pra passar bastavam " + fmt(c.metaPts) + " (" + pf.format(state.meta) + "% de " + fmt(c.total) + ").";
+    } else if (c.status === "risco") {
+      callout = "Faltam <strong>" + c.ptsNecessarios + " pts pra passar</strong>. " +
+        "Ainda estão em jogo <strong>" + fmt(c.emJogo) + " pts</strong> (" +
+        fmt(c.emAberto) + " em avaliações a fazer + " + fmt(c.aDistribuir) +
+        " a distribuir). Você precisa de <strong>" + pct(Math.ceil(c.necessarioPct)) +
+        "% de aproveitamento</strong> em tudo que resta.";
+    } else {
+      callout = "<strong>Não dá mais pra passar.</strong> Mesmo acertando tudo que resta você chega a " +
+        fmt(c.maxPossivel) + " pts, e pra passar são " + fmt(c.metaPts) + " pts.";
+    }
+    if (c.excedente > 0) {
+      callout += '<span class="warn-extra">As avaliações somam ' + fmt(c.distribuido) +
+        " pts, acima do total de " + fmt(c.total) + " pts definido" +
+        (isAno ? " para o ano." : " para o trimestre.") + "</span>";
+    }
+
+    // ----- avaliações list -----
+    var listInner;
+    if (isAno) {
+      listInner = state.periodos.map(function (p) {
+        var rows = m.avaliacoes.filter(function (a) { return a.periodoId === p.id; });
+        if (!rows.length) return "";
+        return '<div class="ano-group-label">' + esc(p.nome) + "</div>" +
+          rows.map(function (a) { return avalRow(m, a, null); }).join("");
+      }).join("");
+      if (!listInner) listInner = '<p class="empty-avals">Sem avaliações.</p>';
+    } else {
+      var rows = m.avaliacoes.filter(function (a) { return a.periodoId === view; });
+      listInner = rows.length
+        ? rows.map(function (a) { return avalRow(m, a, null); }).join("")
+        : '<p class="empty-avals">Nenhuma avaliação neste trimestre.</p>';
+      listInner += '<button class="add-aval" data-add-aval="' + m.id + '">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>' +
+        "Nova avaliação</button>";
+    }
+
+    var count = isAno
+      ? m.avaliacoes.length
+      : m.avaliacoes.filter(function (a) { return a.periodoId === view; }).length;
+
+    var editBtn = isAno ? "" :
+      '<button class="icon-btn ghost" data-edit-materia="' + m.id + '" aria-label="Editar matéria" style="height:32px;padding:0 10px">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>' +
+      "Editar</button>";
+
+    return (
+      '<article class="card" style="--status:' + statusColor + '">' +
+        '<div class="card-head">' +
+          "<h3>" + esc(m.nome) + "</h3>" +
+          '<span class="sub">total <span class="mono">' + fmt(c.total) +
+            '</span> · passar com <span class="mono">' + fmt(c.metaPts) + "</span></span>" +
+          '<span class="spacer"></span>' +
+          editBtn +
+          '<span class="pill ' + c.status + '"><span class="dot"></span>' +
+            (c.status === "risco" ? "Faltam " + c.ptsNecessarios + " pts" : sm.pill) + "</span>" +
+        "</div>" +
+        bar +
+        '<div class="stats">' + chips.join("") + "</div>" +
+        '<div class="callout ' + (c.avals.length ? c.status : "") + '">' + callout + "</div>" +
+        '<details class="avals" open>' +
+          "<summary>" +
+            '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>' +
+            "Avaliações <span class=\"count\">(" + count + ")</span>" +
+          "</summary>" +
+          '<div class="aval-list">' + listInner + "</div>" +
+        "</details>" +
+      "</article>"
+    );
+  }
+
+  function chip(k, v, cls) {
+    return '<div class="stat ' + (cls || "") + '"><div class="k">' + k +
+      '</div><div class="v">' + v + "</div></div>";
+  }
+
+  function avalRow(m, a) {
+    var notaCell = a.nota === null
+      ? '<span class="num pend">vale ' + fmt(a.valor) + " · sem nota</span>"
+      : '<span class="num">vale ' + fmt(a.valor) + " · nota <b>" + fmt(a.nota) + "</b></span>";
+    var dateCell = a.data ? '<span class="date">' + fmtDate(a.data) + "</span>" : '<span class="date"></span>';
+    return (
+      '<div class="aval-row">' +
+        '<span class="desc">' + esc(a.descricao) + "</span>" +
+        notaCell +
+        dateCell +
+        '<span class="row-act">' +
+          '<button data-edit-aval="' + a.id + '" data-mat="' + m.id + '" aria-label="Editar avaliação">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>' +
+          "</button>" +
+          '<button class="del" data-del-aval="' + a.id + '" data-mat="' + m.id + '" aria-label="Excluir avaliação">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>' +
+          "</button>" +
+        "</span>" +
+      "</div>"
+    );
+  }
+
+  // ---------- dialogs: helpers ----------
+  function openDialog(dlg) {
+    if (typeof dlg.showModal === "function") dlg.showModal();
+    else dlg.setAttribute("open", "");
+  }
+  document.addEventListener("click", function (e) {
+    var t = e.target.closest("[data-close]");
+    if (t) {
+      var d = t.closest("dialog");
+      if (d) d.close();
+    }
+  });
+
+  // Custom confirm — window.confirm() is blocked inside the Artifact sandbox iframe.
+  var dlgConfirm = document.getElementById("dlg-confirm");
+  var confirmCb = null;
+  function askConfirm(msg, opts) {
+    opts = opts || {};
+    document.getElementById("confirm-msg").textContent = msg;
+    var yes = document.getElementById("confirm-yes");
+    yes.textContent = opts.yesLabel || "Confirmar";
+    yes.classList.toggle("danger", opts.danger !== false);
+    confirmCb = typeof opts.onYes === "function" ? opts.onYes : null;
+    openDialog(dlgConfirm);
+    setTimeout(function () { document.getElementById("confirm-no").focus(); }, 30);
+  }
+  document.getElementById("confirm-yes").addEventListener("click", function () {
+    var cb = confirmCb;
+    confirmCb = null;
+    dlgConfirm.close();
+    if (cb) cb();
+  });
+  document.getElementById("confirm-no").addEventListener("click", function () {
+    confirmCb = null;
+    dlgConfirm.close();
+  });
+  dlgConfirm.addEventListener("close", function () { confirmCb = null; });
+
+  // ---------- dialog: matéria ----------
+  var dlgMateria = document.getElementById("dlg-materia");
+  var formMateria = document.getElementById("form-materia");
+  var matEditingId = null;
+
+  function openNovaMateria() {
+    matEditingId = null;
+    var perId = view === "ano" ? state.periodos[0].id : view;
+    var perNome = (state.periodos.find(function (p) { return p.id === perId; }) || {}).nome || "trimestre";
+    document.getElementById("dlg-materia-title").textContent = "Nova matéria";
+    document.getElementById("mat-nome").value = "";
+    document.getElementById("mat-total").value = periodoTotal(perId);
+    document.getElementById("mat-err").textContent = "";
+    document.getElementById("mat-excluir").hidden = true;
+    document.getElementById("mat-total-hint").textContent =
+      "Padrão do " + perNome + ": " + fmt(periodoTotal(perId)) + " pts. Altere só se esta matéria valer diferente.";
+    openDialog(dlgMateria);
+    setTimeout(function () { document.getElementById("mat-nome").focus(); }, 30);
+  }
+
+  function openEditMateria(id) {
+    var m = state.materias.find(function (x) { return x.id === id; });
+    if (!m) return;
+    matEditingId = id;
+    var perId = view === "ano" ? state.periodos[0].id : view;
+    var perNome = (state.periodos.find(function (p) { return p.id === perId; }) || {}).nome || "trimestre";
+    document.getElementById("dlg-materia-title").textContent = "Editar matéria";
+    document.getElementById("mat-nome").value = m.nome;
+    document.getElementById("mat-total").value = totalDe(m, perId);
+    document.getElementById("mat-total-hint").textContent =
+      "Padrão do " + perNome + ": " + fmt(periodoTotal(perId)) + " pts. Altere só se esta matéria valer diferente.";
+    document.getElementById("mat-err").textContent = "";
+    document.getElementById("mat-excluir").hidden = false;
+    openDialog(dlgMateria);
+    setTimeout(function () { document.getElementById("mat-nome").focus(); }, 30);
+  }
+
+  formMateria.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var nome = document.getElementById("mat-nome").value.trim();
+    var total = parseNum(document.getElementById("mat-total").value);
+    var err = document.getElementById("mat-err");
+    if (!nome) { err.textContent = "Dê um nome para a matéria."; return; }
+    if (total === null || isNaN(total) || total <= 0) { err.textContent = "O total de pontos precisa ser um número maior que zero."; return; }
+
+    var perId = view === "ano" ? state.periodos[0].id : view;
+    var base = periodoTotal(perId);
+    if (matEditingId) {
+      var m = state.materias.find(function (x) { return x.id === matEditingId; });
+      m.nome = nome;
+      if (total === base) delete m.totais[perId];
+      else m.totais[perId] = total;
+    } else {
+      var nm = { id: uid(), nome: nome, totais: {}, avaliacoes: [] };
+      if (total !== base) nm.totais[perId] = total;
+      state.materias.push(nm);
+    }
+    save();
+    dlgMateria.close();
+    render();
+    toast(matEditingId ? "Matéria atualizada." : "Matéria adicionada.");
+  });
+
+  document.getElementById("mat-excluir").addEventListener("click", function () {
+    if (!matEditingId) return;
+    var id = matEditingId;
+    var m = state.materias.find(function (x) { return x.id === id; });
+    if (!m) return;
+    askConfirm('Excluir "' + m.nome + '" e todas as suas avaliações?', {
+      yesLabel: "Excluir",
+      onYes: function () {
+        state.materias = state.materias.filter(function (x) { return x.id !== id; });
+        save();
+        dlgMateria.close();
+        render();
+        toast("Matéria excluída.");
+      }
+    });
+  });
+
+  // ---------- dialog: avaliação ----------
+  var dlgAval = document.getElementById("dlg-aval");
+  var formAval = document.getElementById("form-aval");
+  var avEditing = null; // { matId, avalId }
+
+  var avFeita = document.getElementById("av-feita");
+  avFeita.addEventListener("change", function () {
+    document.getElementById("av-nota-wrap").hidden = !avFeita.checked;
+  });
+
+  function fillPeriodoSelect(selId) {
+    var sel = document.getElementById("av-periodo");
+    sel.innerHTML = state.periodos.map(function (p) {
+      return '<option value="' + p.id + '">' + esc(p.nome) + "</option>";
+    }).join("");
+    sel.value = selId || (view === "ano" ? state.periodos[0].id : view);
+  }
+
+  function openNovaAval(matId) {
+    avEditing = { matId: matId, avalId: null };
+    document.getElementById("dlg-aval-title").textContent = "Nova avaliação";
+    document.getElementById("av-desc").value = "";
+    document.getElementById("av-valor").value = "";
+    document.getElementById("av-nota").value = "";
+    document.getElementById("av-data").value = "";
+    avFeita.checked = false;
+    document.getElementById("av-nota-wrap").hidden = true;
+    document.getElementById("av-err").textContent = "";
+    document.getElementById("av-excluir").hidden = true;
+    fillPeriodoSelect(view === "ano" ? null : view);
+    openDialog(dlgAval);
+    setTimeout(function () { document.getElementById("av-desc").focus(); }, 30);
+  }
+
+  function openEditAval(matId, avalId) {
+    var m = state.materias.find(function (x) { return x.id === matId; });
+    if (!m) return;
+    var a = m.avaliacoes.find(function (x) { return x.id === avalId; });
+    if (!a) return;
+    avEditing = { matId: matId, avalId: avalId };
+    document.getElementById("dlg-aval-title").textContent = "Editar avaliação";
+    document.getElementById("av-desc").value = a.descricao;
+    document.getElementById("av-valor").value = fmt(a.valor).replace(".", ",");
+    avFeita.checked = a.nota !== null;
+    document.getElementById("av-nota-wrap").hidden = a.nota === null;
+    document.getElementById("av-nota").value = a.nota === null ? "" : fmt(a.nota).replace(".", ",");
+    document.getElementById("av-data").value = a.data || "";
+    document.getElementById("av-err").textContent = "";
+    document.getElementById("av-excluir").hidden = false;
+    fillPeriodoSelect(a.periodoId);
+    openDialog(dlgAval);
+    setTimeout(function () { document.getElementById("av-desc").focus(); }, 30);
+  }
+
+  formAval.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var err = document.getElementById("av-err");
+    var desc = document.getElementById("av-desc").value.trim();
+    var valor = parseNum(document.getElementById("av-valor").value);
+    var periodoId = document.getElementById("av-periodo").value;
+    var feita = avFeita.checked;
+    var nota = feita ? parseNum(document.getElementById("av-nota").value) : null;
+    var data = document.getElementById("av-data").value || null;
+
+    if (!desc) { err.textContent = "Descreva a avaliação (ex.: Prova 1)."; return; }
+    if (valor === null || isNaN(valor) || valor <= 0) { err.textContent = "Informe quantos pontos a avaliação vale (número maior que zero)."; return; }
+    if (feita) {
+      if (nota === null || isNaN(nota)) { err.textContent = "Informe a nota obtida ou desmarque “Já fiz esta avaliação”."; return; }
+      if (nota < 0) { err.textContent = "A nota não pode ser negativa."; return; }
+      if (nota > valor) { err.textContent = "A nota (" + fmt(nota) + ") não pode passar do valor da avaliação (" + fmt(valor) + ")."; return; }
+    }
+
+    var m = state.materias.find(function (x) { return x.id === avEditing.matId; });
+    if (!m) return;
+    if (avEditing.avalId) {
+      var a = m.avaliacoes.find(function (x) { return x.id === avEditing.avalId; });
+      a.descricao = desc; a.valor = valor; a.periodoId = periodoId; a.nota = feita ? nota : null; a.data = data;
+    } else {
+      m.avaliacoes.push({ id: uid(), periodoId: periodoId, descricao: desc, valor: valor, nota: feita ? nota : null, data: data });
+    }
+    save();
+    dlgAval.close();
+    if (view !== "ano" && view !== periodoId) view = periodoId;
+    render();
+    toast(avEditing.avalId ? "Avaliação atualizada." : "Avaliação adicionada.");
+  });
+
+  document.getElementById("av-excluir").addEventListener("click", function () {
+    if (!avEditing || !avEditing.avalId) return;
+    var matId = avEditing.matId, avalId = avEditing.avalId;
+    dlgAval.close();
+    delAval(matId, avalId);
+  });
+
+  function delAval(matId, avalId) {
+    var m = state.materias.find(function (x) { return x.id === matId; });
+    if (!m) return;
+    var a = m.avaliacoes.find(function (x) { return x.id === avalId; });
+    if (!a) return;
+    askConfirm('Excluir a avaliação "' + a.descricao + '"?', {
+      yesLabel: "Excluir",
+      onYes: function () {
+        m.avaliacoes = m.avaliacoes.filter(function (x) { return x.id !== avalId; });
+        save();
+        render();
+        toast("Avaliação excluída.");
+      }
+    });
+  }
+
+  // ---------- dialog: configurações ----------
+  var dlgConfig = document.getElementById("dlg-config");
+  var formConfig = document.getElementById("form-config");
+  var perDraft = [];
+
+  function openConfig() {
+    document.getElementById("cfg-meta").value = state.meta;
+    document.getElementById("cfg-err").textContent = "";
+    perDraft = state.periodos.map(function (p) { return { id: p.id, nome: p.nome, total: p.total }; });
+    renderPerEditor();
+    openDialog(dlgConfig);
+  }
+
+  function renderPerEditor() {
+    var box = document.getElementById("per-editor");
+    box.innerHTML = perDraft.map(function (p, i) {
+      return '<div class="per-item">' +
+        '<input type="text" value="' + esc(p.nome) + '" data-i="' + i + '" data-k="nome" maxlength="40" aria-label="Nome do trimestre" placeholder="Nome">' +
+        '<input type="number" class="per-total" value="' + esc(p.total) + '" data-i="' + i + '" data-k="total" min="1" step="1" inputmode="numeric" aria-label="Total de pontos do trimestre">' +
+        '<button type="button" data-rm="' + i + '" aria-label="Remover trimestre">' +
+          '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>' +
+        "</button></div>";
+    }).join("");
+    Array.prototype.forEach.call(box.querySelectorAll("input"), function (inp) {
+      inp.addEventListener("input", function () {
+        var idx = +inp.getAttribute("data-i");
+        if (inp.getAttribute("data-k") === "total") perDraft[idx].total = inp.value;
+        else perDraft[idx].nome = inp.value;
+      });
+    });
+    Array.prototype.forEach.call(box.querySelectorAll("[data-rm]"), function (b) {
+      b.addEventListener("click", function () {
+        if (perDraft.length <= 1) { toast("É preciso ter ao menos um trimestre."); return; }
+        perDraft.splice(+b.getAttribute("data-rm"), 1);
+        renderPerEditor();
+      });
+    });
+  }
+
+  document.getElementById("cfg-add-per").addEventListener("click", function () {
+    var prev = perDraft.length ? parseNum(perDraft[perDraft.length - 1].total) : null;
+    var t = (prev !== null && !isNaN(prev) && prev > 0) ? prev
+      : ((typeof state.defaultTotal === "number" && state.defaultTotal > 0) ? state.defaultTotal : 100);
+    perDraft.push({ id: "new-" + uid(), nome: (perDraft.length + 1) + "º Trimestre", total: t });
+    renderPerEditor();
+  });
+
+  formConfig.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var err = document.getElementById("cfg-err");
+    var meta = parseNum(document.getElementById("cfg-meta").value);
+    if (meta === null || isNaN(meta) || meta <= 0 || meta > 100) { err.textContent = "A meta deve ser um número entre 1 e 100."; return; }
+
+    for (var i = 0; i < perDraft.length; i++) {
+      var nm = String(perDraft[i].nome || "").trim();
+      if (!nm) { err.textContent = "Todo trimestre precisa de um nome."; return; }
+      var tt = parseNum(perDraft[i].total);
+      if (tt === null || isNaN(tt) || tt <= 0) {
+        err.textContent = 'Total inválido em "' + (nm || ("trimestre " + (i + 1))) + '". Use um número maior que zero.';
+        return;
+      }
+      perDraft[i]._nome = nm;
+      perDraft[i]._total = tt;
+    }
+
+    var keptIds = {};
+    perDraft.forEach(function (p) { if (p.id.indexOf("new-") !== 0) keptIds[p.id] = true; });
+    var removed = state.periodos.filter(function (p) { return !keptIds[p.id]; });
+    var lostAvals = 0;
+    state.materias.forEach(function (m) {
+      m.avaliacoes.forEach(function (a) {
+        if (removed.some(function (r) { return r.id === a.periodoId; })) lostAvals++;
+      });
+    });
+
+    function applyConfig() {
+      state.meta = meta;
+      state.periodos = perDraft.map(function (p) {
+        return { id: p.id.indexOf("new-") === 0 ? uid() : p.id, nome: p._nome, total: p._total };
+      });
+      var validIds = {};
+      state.periodos.forEach(function (p) { validIds[p.id] = true; });
+      state.materias.forEach(function (m) {
+        m.avaliacoes = m.avaliacoes.filter(function (a) { return validIds[a.periodoId]; });
+        Object.keys(m.totais).forEach(function (k) {
+          if (!validIds[k]) { delete m.totais[k]; return; }
+          var per = state.periodos.find(function (p) { return p.id === k; });
+          if (per && m.totais[k] === per.total) delete m.totais[k];
+        });
+      });
+      if (view !== "ano" && !validIds[view]) view = state.periodos[0].id;
+      save();
+      dlgConfig.close();
+      render();
+      toast("Configurações salvas.");
+    }
+
+    if (removed.length && lostAvals > 0) {
+      askConfirm("Remover trimestre(s) vai apagar " + lostAvals + " avaliação(ões). Isso não pode ser desfeito.", {
+        yesLabel: "Remover mesmo assim", onYes: applyConfig
+      });
+    } else {
+      applyConfig();
+    }
+  });
+
+  document.getElementById("cfg-limpar").addEventListener("click", function () {
+    askConfirm("Isso apaga todas as matérias, avaliações e trimestres deste perfil.", {
+      yesLabel: "Limpar tudo",
+      onYes: function () {
+        activeProfile().data = emptyState();
+        state = activeProfile().data;
+        view = state.periodos[0].id;
+        save();
+        dlgConfig.close();
+        render();
+        toast("Tudo limpo.");
+      }
+    });
+  });
+
+  // ---------- perfis ----------
+  function renderProfiles() {
+    var sel = document.getElementById("profile-sel");
+    sel.innerHTML = wrap.profiles.map(function (p) {
+      return '<option value="' + p.id + '"' + (p.id === wrap.activeId ? " selected" : "") + ">" + esc(p.nome) + "</option>";
+    }).join("");
+    document.getElementById("profile-del").disabled = wrap.profiles.length <= 1;
+  }
+
+  document.getElementById("profile-sel").addEventListener("change", function () {
+    var id = this.value;
+    if (!wrap.profiles.some(function (p) { return p.id === id; })) return;
+    wrap.activeId = id;
+    state = activeProfile().data;
+    view = state.periodos[0].id;
+    save();
+    render();
+  });
+
+  var profileMode = "new";
+  var dlgProfile = document.getElementById("dlg-profile");
+  function openProfileDialog(mode) {
+    profileMode = mode;
+    document.getElementById("dlg-profile-title").textContent = mode === "new" ? "Novo perfil" : "Renomear perfil";
+    document.getElementById("prof-nome").value = mode === "rename" ? activeProfile().nome : "";
+    document.getElementById("prof-err").textContent = "";
+    openDialog(dlgProfile);
+    setTimeout(function () { document.getElementById("prof-nome").focus(); }, 30);
+  }
+  document.getElementById("profile-new").addEventListener("click", function () { openProfileDialog("new"); });
+  document.getElementById("profile-ren").addEventListener("click", function () { openProfileDialog("rename"); });
+  document.getElementById("profile-del").addEventListener("click", function () {
+    if (wrap.profiles.length <= 1) { toast("É o único perfil."); return; }
+    var p = activeProfile();
+    askConfirm('Excluir o perfil "' + p.nome + '" e todas as notas dele?', {
+      yesLabel: "Excluir",
+      onYes: function () {
+        wrap.profiles = wrap.profiles.filter(function (x) { return x.id !== p.id; });
+        wrap.activeId = wrap.profiles[0].id;
+        state = activeProfile().data;
+        view = state.periodos[0].id;
+        save();
+        renderProfiles();
+        render();
+        toast("Perfil excluído.");
+      }
+    });
+  });
+  document.getElementById("form-profile").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var nome = document.getElementById("prof-nome").value.trim();
+    var err = document.getElementById("prof-err");
+    if (!nome) { err.textContent = "Digite um nome."; return; }
+    var dup = wrap.profiles.some(function (p) {
+      return p.nome.toLowerCase() === nome.toLowerCase() &&
+        !(profileMode === "rename" && p.id === wrap.activeId);
+    });
+    if (dup) { err.textContent = "Já existe um perfil com esse nome."; return; }
+    if (profileMode === "new") {
+      var id = uid();
+      wrap.profiles.push({ id: id, nome: nome, data: emptyState() });
+      wrap.activeId = id;
+      state = activeProfile().data;
+      view = state.periodos[0].id;
+    } else {
+      activeProfile().nome = nome;
+    }
+    save();
+    dlgProfile.close();
+    renderProfiles();
+    render();
+    toast(profileMode === "new" ? "Perfil criado." : "Perfil renomeado.");
+  });
+
+  // ---------- theme ----------
+  var btnTheme = document.getElementById("btn-theme");
+  function applyThemeIcon() {
+    var explicit = document.documentElement.getAttribute("data-theme");
+    var dark = explicit
+      ? explicit === "dark"
+      : window.matchMedia("(prefers-color-scheme: dark)").matches;
+    document.getElementById("ic-sun").hidden = dark;
+    document.getElementById("ic-moon").hidden = !dark;
+  }
+  try {
+    var savedTheme = localStorage.getItem(LS_THEME);
+    if (savedTheme === "dark" || savedTheme === "light") {
+      document.documentElement.setAttribute("data-theme", savedTheme);
+    }
+  } catch (e) {}
+  applyThemeIcon();
+  btnTheme.addEventListener("click", function () {
+    var cur = document.documentElement.getAttribute("data-theme");
+    var next;
+    if (cur) next = cur === "dark" ? "light" : "dark";
+    else next = window.matchMedia("(prefers-color-scheme: dark)").matches ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    try { localStorage.setItem(LS_THEME, next); } catch (e) {}
+    applyThemeIcon();
+  });
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyThemeIcon);
+
+  // ---------- boot ----------
+  document.getElementById("btn-nova-materia").addEventListener("click", openNovaMateria);
+  document.getElementById("btn-save").addEventListener("click", function () {
+    save();
+    toast(storageOK ? "Tudo salvo neste aparelho." : "Este navegador não está guardando os dados.");
+  });
+  document.getElementById("btn-config").addEventListener("click", openConfig);
+
+  wrap = loadAll();
+  state = activeProfile().data;
+  view = state.periodos[0].id;
+  renderProfiles();
+  renderSaveState();
+  render();
+})();
+</script>
+
+<script>
+  /* App instalável / offline */
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("sw.js").catch(function () {});
+    });
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gerar ícones PNG</title>
+<style>
+  body { font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 32px; background: #f5f6f9; color: #1b2330; }
+  h1 { font-size: 1.3rem; }
+  p { max-width: 60ch; color: #46505f; }
+  .row { display: flex; gap: 20px; flex-wrap: wrap; margin: 20px 0; }
+  figure { margin: 0; text-align: center; }
+  canvas { background: #fff; border: 1px solid #e2e5ec; border-radius: 12px; image-rendering: pixelated; }
+  a.btn { display: inline-block; margin-top: 8px; padding: 8px 14px; background: #3b5bdb; color: #fff; border-radius: 9px; text-decoration: none; font-weight: 600; font-size: .9rem; }
+  code { background: #eaeefc; padding: 1px 5px; border-radius: 5px; }
+  ol { max-width: 62ch; }
+</style>
+</head>
+<body>
+  <h1>Gerar ícones PNG do Controle de Notas</h1>
+  <p>Abra este arquivo (localmente ou já no GitHub Pages), baixe os três PNGs e coloque-os na
+     mesma pasta do <code>index.html</code>. Isso deixa o ícone perfeito também no iPhone.</p>
+  <ol>
+    <li>Clique em <b>Baixar</b> em cada quadro abaixo.</li>
+    <li>Mova <code>icon-192.png</code>, <code>icon-512.png</code> e <code>apple-touch-icon.png</code> para a pasta do projeto.</li>
+    <li>Faça o commit e o push. Pronto.</li>
+  </ol>
+  <div class="row" id="out"></div>
+
+<script>
+  function draw(ctx, size, maskable) {
+    var s = size / 512;
+    ctx.clearRect(0, 0, size, size);
+    // fundo
+    ctx.fillStyle = "#3b5bdb";
+    if (maskable) {
+      ctx.fillRect(0, 0, size, size);
+    } else {
+      var r = 116 * s;
+      roundRect(ctx, 0, 0, size, size, r);
+      ctx.fill();
+    }
+    // barras
+    ctx.fillStyle = "#ffffff";
+    var bars = maskable
+      ? [[150, 300, 58, 80], [232, 252, 58, 128], [314, 188, 58, 192]]
+      : [[112, 300, 76, 104], [218, 236, 76, 168], [324, 150, 76, 254]];
+    bars.forEach(function (b) {
+      roundRect(ctx, b[0] * s, b[1] * s, b[2] * s, b[3] * s, 15 * s);
+      ctx.fill();
+    });
+    // linha "passar"
+    ctx.fillStyle = "#ffd43b";
+    if (maskable) roundRect(ctx, 140 * s, 276 * s, 242 * s, 14 * s, 7 * s);
+    else roundRect(ctx, 92 * s, 268 * s, 328 * s, 18 * s, 9 * s);
+    ctx.fill();
+  }
+  function roundRect(ctx, x, y, w, h, r) {
+    r = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+  function make(name, size, maskable) {
+    var c = document.createElement("canvas");
+    c.width = c.height = size;
+    var ctx = c.getContext("2d");
+    draw(ctx, size, maskable);
+    var fig = document.createElement("figure");
+    var disp = document.createElement("canvas");
+    disp.width = disp.height = Math.min(size, 160);
+    disp.getContext("2d").drawImage(c, 0, 0, disp.width, disp.height);
+    var a = document.createElement("a");
+    a.className = "btn";
+    a.textContent = "Baixar " + name;
+    a.href = c.toDataURL("image/png");
+    a.download = name;
+    fig.appendChild(disp);
+    fig.appendChild(document.createElement("br"));
+    fig.appendChild(a);
+    document.getElementById("out").appendChild(fig);
+  }
+  make("icon-192.png", 192, false);
+  make("icon-512.png", 512, false);
+  make("apple-touch-icon.png", 180, false);
+</script>
+</body>
+</html>
