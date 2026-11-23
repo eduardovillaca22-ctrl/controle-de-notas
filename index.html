@@ -825,7 +825,7 @@
 
   // ---------- sincronização (Supabase) ----------
   // Cada pessoa tem a sua ficha (uma linha no banco, com chave própria).
-  // As chaves chegam uma vez pelo link (#dudu=...&duda=...&eu=dudu) e ficam guardadas no aparelho.
+  // As chaves chegam uma vez pelo link (#dudu=...&duda=...) e ficam guardadas no aparelho; a chave seletora escolhe a ficha.
   var SB_URL = "https://qezuxoobfabfollixrop.supabase.co";
   var SB_KEY = "sb_publishable_gWFb9ENPW9bCMDy-pQ0xdQ_P1W8b7LG";
   var LS_SYNC = "controle-notas-sync2";
@@ -1002,6 +1002,9 @@
     var p = profileById(pid);
     if (!p || pid === wrap.activeId) return;
     wrap.activeId = pid;
+    // o aparelho lembra a última ficha escolhida
+    dono = pid;
+    saveSync();
     state = p.data;
     view = "ano";
     saveLocal();
@@ -1018,7 +1021,7 @@
     });
     var ids = Object.keys(fichas);
     if (!ids.length) return;
-    // cada aparelho abre na ficha do dono
+    // cada aparelho abre na última ficha escolhida nele
     if (dono && profileById(dono)) { wrap.activeId = dono; state = activeProfile().data; }
     ids.forEach(function (id) { fichas[id].status = "enviando"; });
     renderFichas();

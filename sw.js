@@ -1,5 +1,5 @@
 /* Service worker — deixa o app abrir offline depois da primeira visita. */
-var CACHE = "controle-notas-v4";
+var CACHE = "controle-notas-v5";
 var CORE = [
   "./",
   "./index.html",
