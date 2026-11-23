@@ -140,6 +140,10 @@
   .brand h1 { font-size: 1.7rem; }
   .topbar .spacer { flex: 1 1 auto; }
 
+  .fichas { display: inline-flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--chip, rgba(127,127,127,.14)); }
+  .fichas[hidden] { display: none; }
+  .fichas button { font: inherit; font-size: .85rem; font-weight: 600; border: 0; background: transparent; color: var(--muted); padding: 5px 14px; border-radius: 999px; cursor: pointer; }
+  .fichas button.on { background: var(--accent); color: var(--accent-ink, #fff); }
   .savestate { display: inline-flex; align-items: center; gap: 6px; font-size: .8rem; color: var(--muted); white-space: nowrap; }
   .savestate svg { width: 14px; height: 14px; }
   .savestate.ok { color: var(--good); }
@@ -468,6 +472,7 @@
   <header class="topbar">
     <div class="brand">
       <h1>Controle de Notas</h1>
+      <div class="fichas" id="fichas" role="tablist" aria-label="De quem são as notas" hidden></div>
       <span class="savestate" id="savestate"></span>
     </div>
     <div class="spacer"></div>
@@ -793,16 +798,237 @@
     return o;
   }
 
+  function saveLocal() {
+    if (!storageOK) return false;
+    try { localStorage.setItem(LS_KEY, JSON.stringify(wrap)); return true; }
+    catch (e) { storageOK = false; return false; }
+  }
+
   function save() {
-    if (!storageOK) { renderSaveState(); return; }
-    try {
-      localStorage.setItem(LS_KEY, JSON.stringify(wrap));
-      flashSaved();
-    } catch (e) {
-      storageOK = false;
+    var p = activeProfile(), f = fichas[p.id];
+    if (f) {
+      p.semDados = false;
+      f.pendente = true;
+      saveSync();
+      saveLocal();
+      schedulePush(p.id);
+      renderSaveState();
+      return;
+    }
+    if (!saveLocal()) {
       renderSaveState();
       toast("Não foi possível salvar neste navegador.");
+      return;
     }
+    flashSaved();
+  }
+
+  // ---------- sincronização (Supabase) ----------
+  // Cada pessoa tem a sua ficha (uma linha no banco, com chave própria).
+  // As chaves chegam uma vez pelo link (#dudu=...&duda=...&eu=dudu) e ficam guardadas no aparelho.
+  var SB_URL = "https://qezuxoobfabfollixrop.supabase.co";
+  var SB_KEY = "sb_publishable_gWFb9ENPW9bCMDy-pQ0xdQ_P1W8b7LG";
+  var LS_SYNC = "controle-notas-sync2";
+  var fichas = {};   // profileId -> { chave, base, pendente, status }
+  var dono = null;   // profileId de quem usa este aparelho
+  var pushTimers = {}, pushing = {}, pulling = false;
+
+  // dados de exemplo do app (nunca vão para o banco por cima de nada)
+  function pareceExemplo(d) {
+    var nomes = { "Matemática": 1, "História": 1, "Biologia": 1 };
+    return d.materias.length <= 3 &&
+      d.materias.every(function (m) { return nomes[m.nome]; }) &&
+      d.periodos.every(function (p) { return /Trimestre/.test(p.nome); });
+  }
+  function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+  function loadSync() {
+    try {
+      var s = JSON.parse(localStorage.getItem(LS_SYNC) || "null");
+      if (s && s.fichas) { fichas = s.fichas; dono = s.dono || null; }
+    } catch (e) {}
+    // sem cópia local das notas: força baixar a versão do banco
+    try { if (!localStorage.getItem(LS_KEY)) Object.keys(fichas).forEach(function (k) { fichas[k].base = null; }); } catch (e) {}
+
+    var h = (location.hash || "").replace(/^#/, "");
+    if (h.indexOf("=") < 0) return;
+    var params = new URLSearchParams(h), novos = [], eu = null;
+    params.forEach(function (val, key) {
+      key = key.toLowerCase();
+      if (key === "eu") { eu = "f-" + val.toLowerCase(); return; }
+      if (!/^[a-z]{2,20}$/.test(key) || !/^[A-Za-z0-9_\-]{32,}$/.test(val)) return;
+      novos.push({ id: "f-" + key, nome: cap(key), chave: val });
+    });
+    if (!novos.length) return;
+
+    var legado = wrap.profiles.filter(function (p) { return p.id.indexOf("f-") !== 0; });
+    var legadoAtivo = legado.find(function (p) { return p.id === wrap.activeId; }) || legado[0];
+    novos.forEach(function (n) {
+      var f = fichas[n.id];
+      if (!f || f.chave !== n.chave) fichas[n.id] = { chave: n.chave, base: null, pendente: false, status: "" };
+      var p = profileById(n.id);
+      if (!p) {
+        p = { id: n.id, nome: n.nome, data: emptyState(), semDados: true };
+        // as notas que já estavam neste aparelho passam a ser do dono dele
+        if (n.id === eu && legadoAtivo) {
+          p.data = legadoAtivo.data;
+          p.semDados = pareceExemplo(legadoAtivo.data);
+        }
+        wrap.profiles.push(p);
+      }
+      p.nome = n.nome;
+    });
+    // ordem dos botões = ordem do link; perfis antigos (sem ficha) saem
+    var ordem = novos.map(function (n) { return n.id; });
+    wrap.profiles = wrap.profiles.filter(function (p) { return fichas[p.id]; });
+    wrap.profiles.sort(function (a, b) { return ordem.indexOf(a.id) - ordem.indexOf(b.id); });
+    if (eu && fichas[eu]) dono = eu;
+    if (!dono || !fichas[dono]) dono = ordem[0];
+    wrap.activeId = dono;
+    state = activeProfile().data;
+    saveSync();
+    saveLocal();
+    try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
+  }
+  function saveSync() {
+    try { localStorage.setItem(LS_SYNC, JSON.stringify({ fichas: fichas, dono: dono })); } catch (e) {}
+  }
+  function profileById(id) { return wrap.profiles.find(function (p) { return p.id === id; }); }
+  function rpc(fn, body) {
+    return fetch(SB_URL + "/rest/v1/rpc/" + fn, {
+      method: "POST",
+      headers: { "apikey": SB_KEY, "Authorization": "Bearer " + SB_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      cache: "no-store"
+    }).then(function (r) {
+      if (!r.ok) throw new Error("http " + r.status);
+      return r.json();
+    });
+  }
+  function setStatus(pid, s) { if (fichas[pid]) fichas[pid].status = s; if (pid === wrap.activeId) renderSaveState(); }
+
+  function applyRemote(pid, data, updatedAt) {
+    var p = profileById(pid), f = fichas[pid];
+    var d = normalize(data);
+    p.data = d;
+    p.semDados = false;
+    f.base = updatedAt;
+    f.pendente = false;
+    saveSync();
+    saveLocal();
+    if (pid === wrap.activeId) {
+      state = d;
+      if (view !== "ano" && !state.periodos.some(function (x) { return x.id === view; })) view = "ano";
+      render();
+    }
+  }
+
+  function pullOne(pid) {
+    var f = fichas[pid], p = profileById(pid);
+    if (!f || !p) return Promise.resolve();
+    if (f.pendente) return push(pid);
+    return rpc("notas_get", { p_chave: f.chave }).then(function (rows) {
+      var row = rows && rows[0];
+      if (!row) { setStatus(pid, "invalida"); return; }
+      if (row.data == null) {
+        if (p.semDados) { setStatus(pid, "vazia"); return; }
+        // primeiro aparelho a conectar esta ficha: leva as notas daqui para o banco
+        f.base = row.updated_at;
+        f.pendente = true;
+        saveSync();
+        return push(pid);
+      }
+      if (row.updated_at !== f.base && validShape(row.data)) applyRemote(pid, row.data, row.updated_at);
+      setStatus(pid, "ok");
+    }).catch(function () { setStatus(pid, "offline"); });
+  }
+
+  function pull() {
+    if (pulling) return Promise.resolve();
+    var ids = Object.keys(fichas).filter(function (id) { return !pushing[id]; });
+    // a ficha aberta na tela primeiro
+    ids.sort(function (a, b) { return (b === wrap.activeId) - (a === wrap.activeId); });
+    pulling = true;
+    return ids.reduce(function (pr, id) { return pr.then(function () { return pullOne(id); }); }, Promise.resolve())
+      .then(function () { pulling = false; }, function () { pulling = false; });
+  }
+
+  function schedulePush(pid) {
+    clearTimeout(pushTimers[pid]);
+    pushTimers[pid] = setTimeout(function () { push(pid); }, 700);
+  }
+
+  function push(pid) {
+    var f = fichas[pid], p = profileById(pid);
+    if (!f || !p) return Promise.resolve();
+    if (pushing[pid]) { schedulePush(pid); return Promise.resolve(); }
+    pushing[pid] = true;
+    setStatus(pid, "enviando");
+    return rpc("notas_save", { p_chave: f.chave, p_data: p.data, p_base: f.base }).then(function (novo) {
+      pushing[pid] = false;
+      if (novo == null) {
+        // alguém salvou antes (outro aparelho ou o Claude): fica com a versão do banco
+        f.pendente = false;
+        f.base = null;
+        saveSync();
+        toast("As notas de " + p.nome + " foram atualizadas em outro lugar. Mostrando a versão mais nova.");
+        return pullOne(pid);
+      }
+      f.base = novo;
+      f.pendente = false;
+      saveSync();
+      saveLocal();
+      setStatus(pid, "ok");
+      if (pid === wrap.activeId) flashSaved();
+    }).catch(function (e) {
+      pushing[pid] = false;
+      setStatus(pid, /http 4/.test(String(e)) ? "invalida" : "offline");
+    });
+  }
+
+  // ---------- fichas (uma por pessoa) ----------
+  function renderFichas() {
+    var el = document.getElementById("fichas");
+    if (!el) return;
+    if (Object.keys(fichas).length < 2) { el.hidden = true; el.innerHTML = ""; return; }
+    el.hidden = false;
+    el.innerHTML = wrap.profiles.map(function (p) {
+      var on = p.id === wrap.activeId;
+      return '<button type="button" role="tab" aria-selected="' + on + '" data-ficha="' + esc(p.id) + '"' +
+        (on ? ' class="on"' : "") + ">" + esc(p.nome) + "</button>";
+    }).join("");
+  }
+  function trocarFicha(pid) {
+    var p = profileById(pid);
+    if (!p || pid === wrap.activeId) return;
+    wrap.activeId = pid;
+    state = p.data;
+    view = "ano";
+    saveLocal();
+    renderFichas();
+    renderSaveState();
+    render();
+    pullOne(pid);
+  }
+
+  function startSync() {
+    document.getElementById("fichas").addEventListener("click", function (e) {
+      var b = e.target.closest("[data-ficha]");
+      if (b) trocarFicha(b.getAttribute("data-ficha"));
+    });
+    var ids = Object.keys(fichas);
+    if (!ids.length) return;
+    // cada aparelho abre na ficha do dono
+    if (dono && profileById(dono)) { wrap.activeId = dono; state = activeProfile().data; }
+    ids.forEach(function (id) { fichas[id].status = "enviando"; });
+    renderFichas();
+    renderSaveState();
+    render();
+    pull();
+    document.addEventListener("visibilitychange", function () { if (!document.hidden) pull(); });
+    window.addEventListener("focus", function () { pull(); });
+    window.addEventListener("online", function () { pull(); });
+    setInterval(function () { if (!document.hidden) pull(); }, 60000);
   }
 
   var saveFlashTimer;
@@ -819,6 +1045,20 @@
   function renderSaveState() {
     var el = document.getElementById("savestate");
     if (!el) return;
+    var f = wrap && fichas[wrap.activeId];
+    if (f) {
+      var map = {
+        ok: ["ok", CHK, "Sincronizado"],
+        enviando: ["", CHK, "Sincronizando…"],
+        offline: ["bad", WRN, f.pendente ? "Sem internet — salvo aqui, envia depois" : "Sem internet"],
+        invalida: ["bad", WRN, "Link de sincronização inválido"],
+        vazia: ["bad", WRN, "Ficha ainda sem notas no banco"]
+      };
+      var s = map[f.status] || map.enviando;
+      el.className = "savestate " + s[0];
+      el.innerHTML = s[1] + "<span>" + s[2] + "</span>";
+      return;
+    }
     if (storageOK) {
       el.className = "savestate ok";
       el.innerHTML = CHK + "<span>Salvo neste aparelho</span>";
@@ -1643,15 +1883,17 @@
   document.getElementById("btn-nova-materia").addEventListener("click", openNovaMateria);
   document.getElementById("btn-save").addEventListener("click", function () {
     save();
-    toast(storageOK ? "Tudo salvo neste aparelho." : "Este navegador não está guardando os dados.");
+    toast(fichas[wrap.activeId] ? "Salvando no banco…" : (storageOK ? "Tudo salvo neste aparelho." : "Este navegador não está guardando os dados."));
   });
   document.getElementById("btn-config").addEventListener("click", openConfig);
 
   wrap = loadAll();
   state = activeProfile().data;
   view = "ano";
+  loadSync();
   renderSaveState();
   render();
+  startSync();
 })();
 </script>
 
