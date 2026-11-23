@@ -140,21 +140,6 @@
   .brand h1 { font-size: 1.7rem; }
   .topbar .spacer { flex: 1 1 auto; }
 
-  /* Perfil + estado de salvamento */
-  .profilebar {
-    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-    margin-top: 18px; padding: 10px 12px;
-    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
-  }
-  .profilebar label { font-size: .72rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); font-weight: 700; }
-  .profilebar select {
-    height: 34px; padding: 0 10px; border-radius: 9px;
-    border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink);
-    font-weight: 600; max-width: 46vw;
-  }
-  .profilebar select:focus { outline: none; box-shadow: var(--focus); border-color: var(--accent); }
-  .icon-btn.sm { height: 34px; padding: 0 10px; font-size: .82rem; }
-  .profilebar .spacer { flex: 1 1 auto; }
   .savestate { display: inline-flex; align-items: center; gap: 6px; font-size: .8rem; color: var(--muted); white-space: nowrap; }
   .savestate svg { width: 14px; height: 14px; }
   .savestate.ok { color: var(--good); }
@@ -410,6 +395,51 @@
   }
   .danger-link:hover { text-decoration: underline; }
 
+  /* ---------- Tabela-resumo (quanto falta) e etapa fechada ---------- */
+  .resumo:empty { display: none; }
+  .resumo {
+    margin-top: 20px; background: var(--surface); border: 1px solid var(--line);
+    border-radius: 16px; box-shadow: var(--shadow); overflow: hidden;
+  }
+  .resumo-head { padding: 14px 16px 10px; display: flex; flex-direction: column; gap: 2px; }
+  .resumo-head h2 { font-size: 1.05rem; }
+  .resumo-head p { margin: 0; color: var(--muted); font-size: .8rem; }
+  .tbl-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table.tbl { width: 100%; border-collapse: collapse; font-size: .88rem; }
+  .tbl th {
+    text-align: left; font-size: .66rem; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--muted); font-weight: 700; padding: 8px 12px; white-space: nowrap;
+    border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--surface-2);
+  }
+  .tbl td { padding: 9px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  .tbl tbody tr:last-child td { border-bottom: 0; }
+  .tbl .n { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .tbl td.mat { font-weight: 600; white-space: normal; min-width: 120px; border-left: 3px solid var(--line-strong); }
+  .tbl tr.ok td.mat { border-left-color: var(--good); }
+  .tbl tr.risco td.mat { border-left-color: var(--warn); }
+  .tbl tr.fora td.mat { border-left-color: var(--bad); }
+  .tbl .t-ok { color: var(--good); font-weight: 600; }
+  .tbl .t-risco { color: var(--warn); font-weight: 600; }
+  .tbl .t-fora { color: var(--bad); font-weight: 600; }
+  .tbl .muted { color: var(--muted); }
+  .tbl td.act { text-align: right; padding: 4px 8px; }
+  .tbl td.act button {
+    border: 0; background: transparent; color: var(--muted); border-radius: 7px;
+    width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;
+  }
+  .tbl td.act button:hover { background: var(--surface-2); color: var(--ink); }
+  .tbl td.act svg { width: 15px; height: 15px; }
+  .tbl tfoot td { font-weight: 600; background: var(--surface-2); border-top: 1px solid var(--line); border-bottom: 0; }
+  @media (max-width: 560px) {
+    table.tbl { font-size: .8rem; }
+    .tbl th, .tbl td { padding: 8px 6px; }
+    .tbl th { font-size: .6rem; letter-spacing: .03em; }
+    .tbl th { white-space: normal; }
+    .tbl td.mat { min-width: 0; font-size: .8rem; }
+    .tbl .opc, .tbl .tot { display: none; }
+  }
+  .per-item .check { flex: 0 0 auto; font-size: .78rem; white-space: nowrap; }
+
   .toast {
     position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(8px);
     background: var(--ink); color: var(--bg);
@@ -438,6 +468,7 @@
   <header class="topbar">
     <div class="brand">
       <h1>Controle de Notas</h1>
+      <span class="savestate" id="savestate"></span>
     </div>
     <div class="spacer"></div>
     <div class="actions">
@@ -449,6 +480,15 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
         Salvar
       </button>
+      <button class="icon-btn" id="btn-importar" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+        Importar
+      </button>
+      <button class="icon-btn" id="btn-exportar" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
+        Exportar
+      </button>
+      <input type="file" id="file-importar" accept=".json,application/json" hidden>
       <button class="icon-btn" id="btn-config">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 8 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 3.6 15a1.65 1.65 0 0 0-1.51-1H2a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 3.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 8 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09A1.65 1.65 0 0 0 16 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.2.63.77 1.06 1.42 1.09H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         Configurações
@@ -460,26 +500,15 @@
     </div>
   </header>
 
-  <div class="profilebar">
-    <label for="profile-sel">Perfil</label>
-    <select id="profile-sel" aria-label="Escolher perfil"></select>
-    <button class="icon-btn ghost sm" id="profile-new" type="button">+ Novo</button>
-    <button class="icon-btn ghost sm" id="profile-ren" type="button">Renomear</button>
-    <button class="icon-btn ghost sm" id="profile-del" type="button">Excluir</button>
-    <button class="icon-btn ghost sm" id="btn-importar" type="button">Importar</button>
-    <button class="icon-btn ghost sm" id="btn-exportar" type="button">Exportar</button>
-    <input type="file" id="file-importar" accept=".json,application/json" hidden>
-    <span class="spacer"></span>
-    <span class="savestate" id="savestate"></span>
-  </div>
-
   <div class="tabs-row">
     <div class="tabs" id="tabs" role="tablist" aria-label="Trimestres"></div>
   </div>
 
   <section class="tiles" id="tiles" aria-label="Resumo"></section>
 
-  <div class="legend" aria-hidden="true">
+  <section class="resumo" id="resumo" aria-label="Quanto falta por matéria"></section>
+
+  <div class="legend" id="legend" aria-hidden="true">
     <span><i class="swatch sw-obt"></i> pontos obtidos</span>
     <span><i class="swatch sw-abr"></i> avaliações a fazer</span>
     <span><i class="swatch sw-dist"></i> pontos a distribuir</span>
@@ -598,25 +627,6 @@
   </div>
 </dialog>
 
-<dialog id="dlg-profile">
-  <form method="dialog" id="form-profile">
-    <div class="dlg-head"><h3 id="dlg-profile-title">Novo perfil</h3><div class="spacer"></div></div>
-    <div class="dlg-body">
-      <div class="field">
-        <label for="prof-nome">Nome de quem vai usar</label>
-        <input type="text" id="prof-nome" autocomplete="off" maxlength="40" placeholder="Ex.: Fulano">
-        <span class="hint">Cada perfil guarda suas próprias matérias e notas, separado dos outros, neste aparelho.</span>
-      </div>
-      <p class="field-error" id="prof-err"></p>
-    </div>
-    <div class="dlg-foot">
-      <div class="spacer"></div>
-      <button type="button" class="icon-btn ghost" data-close>Cancelar</button>
-      <button type="submit" class="icon-btn primary">Salvar</button>
-    </div>
-  </form>
-</dialog>
-
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script>
@@ -634,7 +644,7 @@
 
   // ---------- utils ----------
   function uid() { return Math.random().toString(36).slice(2, 9); }
-  var nf = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 });
+  var nf = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });
   var pf = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
   function fmt(n) { return nf.format(Math.round(n * 100) / 100); }
   function pct(n) { return pf.format(Math.round(n)); }
@@ -888,7 +898,87 @@
 
     renderTabs();
     renderTiles();
-    renderCards();
+    renderResumo();
+    var fechada = isFechada(view);
+    document.getElementById("legend").hidden = fechada;
+    if (fechada) document.getElementById("cards").innerHTML = "";
+    else renderCards();
+  }
+
+  function isFechada(perId) {
+    var p = state.periodos.find(function (x) { return x.id === perId; });
+    return !!(p && p.fechada);
+  }
+
+  var ICON_EDIT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>';
+
+  // Tabela no topo: quanto falta pra meta em cada matéria (ou só a nota, se a etapa estiver fechada).
+  function renderResumo() {
+    var el = document.getElementById("resumo");
+    if (!state.materias.length) { el.innerHTML = ""; return; }
+    var isAno = view === "ano";
+    var meta = pf.format(state.meta);
+    var linhas = state.materias.map(function (m) {
+      return { m: m, c: isAno ? calcAno(m) : calcPeriodo(m, view) };
+    });
+
+    if (isFechada(view)) {
+      var somaObt = 0, somaTot = 0;
+      var body = linhas.map(function (l) {
+        var c = l.c, p = c.total > 0 ? (c.obtidos / c.total) * 100 : 0;
+        somaObt += c.obtidos; somaTot += c.total;
+        var st = c.obtidos >= c.metaPts ? "ok" : "fora";
+        return '<tr class="' + st + '"><td class="mat">' + esc(l.m.nome) + "</td>" +
+          '<td class="n"><b>' + fmt(c.obtidos) + "</b></td>" +
+          '<td class="n muted">' + fmt(c.total) + "</td>" +
+          '<td class="n t-' + st + '">' + pct(p) + "%</td>" +
+          '<td class="act"><button data-resumo-edit="' + l.m.id + '" aria-label="Editar nota de ' + esc(l.m.nome) + '">' + ICON_EDIT + "</button></td></tr>";
+      }).join("");
+      el.innerHTML =
+        '<div class="resumo-head"><h2>Nota de cada matéria</h2>' +
+        "<p>Etapa fechada: aparece só a nota final da etapa. Para ver as provas, desmarque “fechada” em Configurações.</p></div>" +
+        '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Matéria</th><th class="n">Nota</th><th class="n">Valia</th><th class="n">%</th><th></th></tr></thead>' +
+        "<tbody>" + body + "</tbody>" +
+        '<tfoot><tr><td>Média das matérias</td><td class="n">' + fmt(somaObt / linhas.length) + '</td><td class="n muted">' +
+          fmt(somaTot / linhas.length) + '</td><td class="n">' + pct(somaTot ? (somaObt / somaTot) * 100 : 0) + "%</td><td></td></tr></tfoot>" +
+        "</table></div>";
+      Array.prototype.forEach.call(el.querySelectorAll("[data-resumo-edit]"), function (b) {
+        b.addEventListener("click", function () {
+          var m = state.materias.find(function (x) { return x.id === b.getAttribute("data-resumo-edit"); });
+          if (!m) return;
+          var avs = m.avaliacoes.filter(function (a) { return a.periodoId === view; });
+          if (avs.length === 1) openEditAval(m.id, avs[0].id);
+          else if (!avs.length) openNovaAval(m.id);
+          else toast("Esta matéria tem várias avaliações nesta etapa. Desmarque “fechada” para editá-las.");
+        });
+      });
+      return;
+    }
+
+    linhas.sort(function (a, b) {
+      var oa = a.c.status === "ok" ? 0 : 1, ob = b.c.status === "ok" ? 0 : 1;
+      return oa - ob || a.c.faltaPts - b.c.faltaPts || b.c.obtidos - a.c.obtidos;
+    });
+    var nOk = linhas.filter(function (l) { return l.c.status === "ok"; }).length;
+    var somaFalta = sum(linhas.map(function (l) { return l.c.faltaPts; }));
+    var body2 = linhas.map(function (l) {
+      var c = l.c, st = c.status, passou = st === "ok";
+      var precisa = passou ? "—" : (c.necessarioPct === null ? "—" : pct(Math.ceil(c.necessarioPct * 10) / 10) + "%");
+      var clsPrecisa = passou ? "muted" : (c.necessarioPct !== null && c.necessarioPct >= 40 ? "t-fora" : "t-risco");
+      return '<tr class="' + st + '"><td class="mat">' + esc(l.m.nome) + "</td>" +
+        '<td class="n"><b>' + fmt(c.obtidos) + '</b><span class="muted tot"> / ' + fmt(c.total) + "</span></td>" +
+        '<td class="n ' + (passou ? "t-ok" : "t-" + st) + '">' + (passou ? '✓<span class="tot"> passou</span>' : fmt(c.faltaPts)) + "</td>" +
+        '<td class="n muted opc">' + (passou ? "—" : fmt(c.emJogo)) + "</td>" +
+        '<td class="n ' + clsPrecisa + '">' + (st === "fora" ? "não dá mais" : precisa) + "</td>" +
+        '<td class="n opc">' + (c.aproveitamento === null ? "—" : pct(c.aproveitamento) + "%") + "</td></tr>";
+    }).join("");
+    el.innerHTML =
+      '<div class="resumo-head"><h2>Quanto falta para ' + meta + "%" + (isAno ? " no ano" : " na etapa") + "</h2>" +
+      "<p>" + nOk + " de " + linhas.length + " já passaram · faltam " + fmt(somaFalta) + " pts somando todas. " +
+      "“Precisa do restante” = quanto você tem que tirar, em %, de tudo que ainda vale ponto. Aproveitamento = sua nota ÷ valor das avaliações já corrigidas.</p></div>" +
+      '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Matéria</th><th class="n">Tem</th><th class="n">Falta p/ ' + meta + '%</th>' +
+      '<th class="n opc">Ainda vale</th><th class="n">Precisa do restante</th><th class="n opc">Aproveitamento</th></tr></thead>' +
+      "<tbody>" + body2 + "</tbody></table></div>";
   }
 
   function renderTabs() {
@@ -1001,7 +1091,7 @@
     if (c.status === "ok") {
       chips.push(chip("Falta pra passar", "já passou", "hl-good"));
     } else if (c.status === "risco") {
-      chips.push(chip("Falta pra passar", c.ptsNecessarios + " pts", "hl-warn"));
+      chips.push(chip("Falta pra passar", fmt(c.faltaPts) + " pts", "hl-warn"));
       chips.push(chip("Precisa tirar", pct(Math.ceil(c.necessarioPct)) + "% do que resta", "hl-warn"));
     } else {
       chips.push(chip("Falta pra passar", fmt(c.faltaPts) + " pts", "hl-bad"));
@@ -1016,7 +1106,7 @@
       callout = "<strong>Você já passou.</strong> São " + fmt(c.obtidos) +
         " pts, e pra passar bastavam " + fmt(c.metaPts) + " (" + pf.format(state.meta) + "% de " + fmt(c.total) + ").";
     } else if (c.status === "risco") {
-      callout = "Faltam <strong>" + c.ptsNecessarios + " pts pra passar</strong>. " +
+      callout = "Faltam <strong>" + fmt(c.faltaPts) + " pts pra passar</strong>. " +
         "Ainda estão em jogo <strong>" + fmt(c.emJogo) + " pts</strong> (" +
         fmt(c.emAberto) + " em avaliações a fazer + " + fmt(c.aDistribuir) +
         " a distribuir). Você precisa de <strong>" + pct(Math.ceil(c.necessarioPct)) +
@@ -1037,6 +1127,13 @@
       listInner = state.periodos.map(function (p) {
         var rows = m.avaliacoes.filter(function (a) { return a.periodoId === p.id; });
         if (!rows.length) return "";
+        if (p.fechada) {
+          var cp = calcPeriodo(m, p.id);
+          return '<div class="ano-group-label">' + esc(p.nome) + "</div>" +
+            '<div class="aval-row"><span class="desc">Nota da etapa</span>' +
+            '<span class="num">vale ' + fmt(cp.total) + " · nota <b>" + fmt(cp.obtidos) + "</b></span>" +
+            '<span class="date"></span><span class="row-act"></span></div>';
+        }
         return '<div class="ano-group-label">' + esc(p.nome) + "</div>" +
           rows.map(function (a) { return avalRow(m, a, null); }).join("");
       }).join("");
@@ -1069,7 +1166,7 @@
           '<span class="spacer"></span>' +
           editBtn +
           '<span class="pill ' + c.status + '"><span class="dot"></span>' +
-            (c.status === "risco" ? "Faltam " + c.ptsNecessarios + " pts" : sm.pill) + "</span>" +
+            (c.status === "risco" ? "Faltam " + fmt(c.faltaPts) + " pts" : sm.pill) + "</span>" +
         "</div>" +
         bar +
         '<div class="stats">' + chips.join("") + "</div>" +
@@ -1348,7 +1445,7 @@
   function openConfig() {
     document.getElementById("cfg-meta").value = state.meta;
     document.getElementById("cfg-err").textContent = "";
-    perDraft = state.periodos.map(function (p) { return { id: p.id, nome: p.nome, total: p.total }; });
+    perDraft = state.periodos.map(function (p) { return { id: p.id, nome: p.nome, total: p.total, fechada: !!p.fechada }; });
     renderPerEditor();
     openDialog(dlgConfig);
   }
@@ -1358,7 +1455,8 @@
     box.innerHTML = perDraft.map(function (p, i) {
       return '<div class="per-item">' +
         '<input type="text" value="' + esc(p.nome) + '" data-i="' + i + '" data-k="nome" maxlength="40" aria-label="Nome do trimestre" placeholder="Nome">' +
-        '<input type="number" class="per-total" value="' + esc(p.total) + '" data-i="' + i + '" data-k="total" min="1" step="1" inputmode="numeric" aria-label="Total de pontos do trimestre">' +
+        '<input type="number" class="per-total" value="' + esc(p.total) + '" data-i="' + i + '" data-k="total" min="0.5" step="any" inputmode="decimal" aria-label="Total de pontos do trimestre">' +
+        '<label class="check" title="Etapa fechada: mostra só a nota de cada matéria"><input type="checkbox" data-i="' + i + '" data-k="fechada"' + (p.fechada ? " checked" : "") + '> fechada</label>' +
         '<button type="button" data-rm="' + i + '" aria-label="Remover trimestre">' +
           '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>' +
         "</button></div>";
@@ -1366,8 +1464,13 @@
     Array.prototype.forEach.call(box.querySelectorAll("input"), function (inp) {
       inp.addEventListener("input", function () {
         var idx = +inp.getAttribute("data-i");
-        if (inp.getAttribute("data-k") === "total") perDraft[idx].total = inp.value;
+        var k = inp.getAttribute("data-k");
+        if (k === "total") perDraft[idx].total = inp.value;
+        else if (k === "fechada") perDraft[idx].fechada = inp.checked;
         else perDraft[idx].nome = inp.value;
+      });
+      inp.addEventListener("change", function () {
+        if (inp.getAttribute("data-k") === "fechada") perDraft[+inp.getAttribute("data-i")].fechada = inp.checked;
       });
     });
     Array.prototype.forEach.call(box.querySelectorAll("[data-rm]"), function (b) {
@@ -1418,7 +1521,7 @@
     function applyConfig() {
       state.meta = meta;
       state.periodos = perDraft.map(function (p) {
-        return { id: p.id.indexOf("new-") === 0 ? uid() : p.id, nome: p._nome, total: p._total };
+        return { id: p.id.indexOf("new-") === 0 ? uid() : p.id, nome: p._nome, total: p._total, fechada: !!p.fechada };
       });
       var validIds = {};
       state.periodos.forEach(function (p) { validIds[p.id] = true; });
@@ -1447,7 +1550,7 @@
   });
 
   document.getElementById("cfg-limpar").addEventListener("click", function () {
-    askConfirm("Isso apaga todas as matérias, avaliações e trimestres deste perfil.", {
+    askConfirm("Isso apaga todas as matérias, avaliações e trimestres deste aparelho.", {
       yesLabel: "Limpar tudo",
       onYes: function () {
         activeProfile().data = emptyState();
@@ -1461,93 +1564,8 @@
     });
   });
 
-  // ---------- perfis ----------
-  function renderProfiles() {
-    var sel = document.getElementById("profile-sel");
-    sel.innerHTML = wrap.profiles.map(function (p) {
-      return '<option value="' + p.id + '"' + (p.id === wrap.activeId ? " selected" : "") + ">" + esc(p.nome) + "</option>";
-    }).join("");
-    document.getElementById("profile-del").disabled = wrap.profiles.length <= 1;
-  }
-
-  document.getElementById("profile-sel").addEventListener("change", function () {
-    var id = this.value;
-    if (!wrap.profiles.some(function (p) { return p.id === id; })) return;
-    wrap.activeId = id;
-    state = activeProfile().data;
-    view = state.periodos[0].id;
-    save();
-    render();
-  });
-
-  var profileMode = "new";
-  var dlgProfile = document.getElementById("dlg-profile");
-  function openProfileDialog(mode) {
-    profileMode = mode;
-    document.getElementById("dlg-profile-title").textContent = mode === "new" ? "Novo perfil" : "Renomear perfil";
-    document.getElementById("prof-nome").value = mode === "rename" ? activeProfile().nome : "";
-    document.getElementById("prof-err").textContent = "";
-    openDialog(dlgProfile);
-    setTimeout(function () { document.getElementById("prof-nome").focus(); }, 30);
-  }
-  document.getElementById("profile-new").addEventListener("click", function () { openProfileDialog("new"); });
-  document.getElementById("profile-ren").addEventListener("click", function () { openProfileDialog("rename"); });
-  document.getElementById("profile-del").addEventListener("click", function () {
-    if (wrap.profiles.length <= 1) { toast("É o único perfil."); return; }
-    var p = activeProfile();
-    askConfirm('Excluir o perfil "' + p.nome + '" e todas as notas dele?', {
-      yesLabel: "Excluir",
-      onYes: function () {
-        wrap.profiles = wrap.profiles.filter(function (x) { return x.id !== p.id; });
-        wrap.activeId = wrap.profiles[0].id;
-        state = activeProfile().data;
-        view = state.periodos[0].id;
-        save();
-        renderProfiles();
-        render();
-        toast("Perfil excluído.");
-      }
-    });
-  });
-  document.getElementById("form-profile").addEventListener("submit", function (e) {
-    e.preventDefault();
-    var nome = document.getElementById("prof-nome").value.trim();
-    var err = document.getElementById("prof-err");
-    if (!nome) { err.textContent = "Digite um nome."; return; }
-    var dup = wrap.profiles.some(function (p) {
-      return p.nome.toLowerCase() === nome.toLowerCase() &&
-        !(profileMode === "rename" && p.id === wrap.activeId);
-    });
-    if (dup) { err.textContent = "Já existe um perfil com esse nome."; return; }
-    if (profileMode === "new") {
-      var id = uid();
-      wrap.profiles.push({ id: id, nome: nome, data: emptyState() });
-      wrap.activeId = id;
-      state = activeProfile().data;
-      view = state.periodos[0].id;
-    } else {
-      activeProfile().nome = nome;
-    }
-    save();
-    dlgProfile.close();
-    renderProfiles();
-    render();
-    toast(profileMode === "new" ? "Perfil criado." : "Perfil renomeado.");
-  });
-
-  // ---------- importar / exportar perfil ----------
-  // Arquivo: { tipo: "controle-notas-perfil", nome, data } (um perfil).
-  function addProfile(nome, data) {
-    var id = uid();
-    wrap.profiles.push({ id: id, nome: nome, data: data });
-    wrap.activeId = id;
-    state = activeProfile().data;
-    view = state.periodos[0].id;
-    save();
-    renderProfiles();
-    render();
-  }
-
+  // ---------- importar / exportar ----------
+  // Arquivo: { tipo: "controle-notas-perfil", data } — substitui as notas deste aparelho.
   document.getElementById("btn-importar").addEventListener("click", function () {
     document.getElementById("file-importar").click();
   });
@@ -1564,27 +1582,18 @@
         toast("Arquivo inválido para o Controle de Notas.");
         return;
       }
-      var nome = String(obj.nome || "Importado").trim().slice(0, 40) || "Importado";
       var data = normalize(obj.data);
-      var existente = wrap.profiles.find(function (p) { return p.nome.toLowerCase() === nome.toLowerCase(); });
-      if (existente) {
-        askConfirm('Já existe o perfil "' + existente.nome + '". Substituir as notas dele pelas do arquivo?', {
-          yesLabel: "Substituir",
-          onYes: function () {
-            existente.data = data;
-            wrap.activeId = existente.id;
-            state = existente.data;
-            view = state.periodos[0].id;
-            save();
-            renderProfiles();
-            render();
-            toast("Perfil substituído.");
-          }
-        });
-      } else {
-        addProfile(nome, data);
-        toast('Perfil "' + nome + '" importado.');
-      }
+      askConfirm("Substituir todas as notas deste aparelho pelas do arquivo? As notas atuais serão apagadas.", {
+        yesLabel: "Substituir",
+        onYes: function () {
+          activeProfile().data = data;
+          state = data;
+          view = "ano";
+          save();
+          render();
+          toast("Notas importadas.");
+        }
+      });
     };
     rd.onerror = function () { toast("Não foi possível ler o arquivo."); };
     rd.readAsText(f);
@@ -1592,10 +1601,10 @@
 
   document.getElementById("btn-exportar").addEventListener("click", function () {
     var p = activeProfile();
-    var json = JSON.stringify({ tipo: "controle-notas-perfil", nome: p.nome, data: p.data }, null, 2);
+    var json = JSON.stringify({ tipo: "controle-notas-perfil", data: p.data }, null, 2);
     var a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([json], { type: "application/json" }));
-    a.download = "notas-" + p.nome.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + ".json";
+    a.download = "notas-" + new Date().toISOString().slice(0, 10) + ".json";
     document.body.appendChild(a);
     a.click();
     setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
@@ -1640,8 +1649,7 @@
 
   wrap = loadAll();
   state = activeProfile().data;
-  view = state.periodos[0].id;
-  renderProfiles();
+  view = "ano";
   renderSaveState();
   render();
 })();
@@ -1652,6 +1660,13 @@
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", function () {
       navigator.serviceWorker.register("sw.js").catch(function () {});
+      // quando uma versão nova do app assume, recarrega uma vez para mostrá-la
+      var recarregou = false;
+      navigator.serviceWorker.addEventListener("controllerchange", function () {
+        if (recarregou) return;
+        recarregou = true;
+        location.reload();
+      });
     });
   }
 </script>

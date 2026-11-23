@@ -1,5 +1,5 @@
 /* Service worker — deixa o app abrir offline depois da primeira visita. */
-var CACHE = "controle-notas-v2";
+var CACHE = "controle-notas-v3";
 var CORE = [
   "./",
   "./index.html",
@@ -35,16 +35,17 @@ self.addEventListener("fetch", function (e) {
   var sameOrigin = new URL(req.url).origin === self.location.origin;
 
   if (sameOrigin) {
-    // arquivos do app: cache primeiro, rede como reforço
+    // arquivos do app: rede primeiro (pega sempre a versão nova), cache quando estiver offline
     e.respondWith(
-      caches.match(req).then(function (hit) {
-        if (hit) return hit;
-        return fetch(req).then(function (res) {
+      fetch(req, { cache: "no-store" }).then(function (res) {
+        if (res && res.ok) {
           var copy = res.clone();
           caches.open(CACHE).then(function (c) { c.put(req, copy); });
-          return res;
-        }).catch(function () {
-          if (req.mode === "navigate") return caches.match("./index.html");
+        }
+        return res;
+      }).catch(function () {
+        return caches.match(req).then(function (hit) {
+          return hit || (req.mode === "navigate" ? caches.match("./index.html") : Response.error());
         });
       })
     );
