@@ -870,7 +870,7 @@
       if (!p) {
         p = { id: n.id, nome: n.nome, data: emptyState(), semDados: true };
         // as notas que já estavam neste aparelho passam a ser do dono dele
-        if (n.id === eu && legadoAtivo) {
+        if (n.id === (eu || novos[0].id) && legadoAtivo) {
           p.data = legadoAtivo.data;
           p.semDados = pareceExemplo(legadoAtivo.data);
         }
