@@ -140,6 +140,11 @@
   .brand h1 { font-size: 1.7rem; }
   .topbar .spacer { flex: 1 1 auto; }
 
+  .conectar { margin: 0 0 16px; padding: 14px 16px; border-radius: 14px; border: 1px solid var(--accent); background: var(--accent-soft); }
+  .conectar[hidden] { display: none; }
+  .conectar p { margin: 4px 0 10px; color: var(--muted); font-size: .9rem; }
+  .conectar-row { display: flex; gap: 8px; }
+  .conectar-row input { flex: 1; min-width: 0; font: inherit; font-size: 16px; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--muted); background: transparent; color: inherit; }
   .fichas { display: inline-flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--chip, rgba(127,127,127,.14)); }
   .fichas[hidden] { display: none; }
   .fichas button { font: inherit; font-size: .85rem; font-weight: 600; border: 0; background: transparent; color: var(--muted); padding: 5px 14px; border-radius: 999px; cursor: pointer; }
@@ -504,6 +509,15 @@
       </button>
     </div>
   </header>
+
+  <section class="conectar" id="conectar" hidden>
+    <strong>Ligar este aparelho às notas do Dudu e da Duda</strong>
+    <p>Cole aqui o link do app (o mesmo que foi mandado no WhatsApp) e toque em Conectar. É só uma vez.</p>
+    <div class="conectar-row">
+      <input type="url" id="conectar-link" placeholder="https://…/controle-de-notas/#dudu=…" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <button class="icon-btn primary" id="conectar-btn" type="button">Conectar</button>
+    </div>
+  </section>
 
   <div class="tabs-row">
     <div class="tabs" id="tabs" role="tablist" aria-label="Trimestres"></div>
@@ -1019,7 +1033,17 @@
       var b = e.target.closest("[data-ficha]");
       if (b) trocarFicha(b.getAttribute("data-ficha"));
     });
+    document.getElementById("conectar-btn").addEventListener("click", function () {
+      var v = document.getElementById("conectar-link").value.trim();
+      var i = v.indexOf("#");
+      var h = i >= 0 ? v.slice(i + 1) : v;
+      if (!/(^|&)[a-z]{2,20}=[A-Za-z0-9_\-]{32,}/.test(h)) { toast("Esse não parece o link do app. Copie o link inteiro."); return; }
+      location.hash = h;
+      location.reload();
+    });
     var ids = Object.keys(fichas);
+    // aparelho ainda sem as chaves (ex.: app da tela inicial do iPhone, que não divide dados com o navegador)
+    document.getElementById("conectar").hidden = ids.length > 0;
     if (!ids.length) return;
     // cada aparelho abre na última ficha escolhida nele
     if (dono && profileById(dono)) { wrap.activeId = dono; state = activeProfile().data; }
