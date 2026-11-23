@@ -466,6 +466,9 @@
     <button class="icon-btn ghost sm" id="profile-new" type="button">+ Novo</button>
     <button class="icon-btn ghost sm" id="profile-ren" type="button">Renomear</button>
     <button class="icon-btn ghost sm" id="profile-del" type="button">Excluir</button>
+    <button class="icon-btn ghost sm" id="btn-importar" type="button">Importar</button>
+    <button class="icon-btn ghost sm" id="btn-exportar" type="button">Exportar</button>
+    <input type="file" id="file-importar" accept=".json,application/json" hidden>
     <span class="spacer"></span>
     <span class="savestate" id="savestate"></span>
   </div>
@@ -1530,6 +1533,73 @@
     renderProfiles();
     render();
     toast(profileMode === "new" ? "Perfil criado." : "Perfil renomeado.");
+  });
+
+  // ---------- importar / exportar perfil ----------
+  // Arquivo: { tipo: "controle-notas-perfil", nome, data } (um perfil).
+  function addProfile(nome, data) {
+    var id = uid();
+    wrap.profiles.push({ id: id, nome: nome, data: data });
+    wrap.activeId = id;
+    state = activeProfile().data;
+    view = state.periodos[0].id;
+    save();
+    renderProfiles();
+    render();
+  }
+
+  document.getElementById("btn-importar").addEventListener("click", function () {
+    document.getElementById("file-importar").click();
+  });
+  document.getElementById("file-importar").addEventListener("change", function () {
+    var inp = this;
+    var f = inp.files && inp.files[0];
+    inp.value = "";
+    if (!f) return;
+    var rd = new FileReader();
+    rd.onload = function () {
+      var obj;
+      try { obj = JSON.parse(String(rd.result)); } catch (e) { obj = null; }
+      if (!obj || obj.tipo !== "controle-notas-perfil" || !validShape(obj.data)) {
+        toast("Arquivo inválido para o Controle de Notas.");
+        return;
+      }
+      var nome = String(obj.nome || "Importado").trim().slice(0, 40) || "Importado";
+      var data = normalize(obj.data);
+      var existente = wrap.profiles.find(function (p) { return p.nome.toLowerCase() === nome.toLowerCase(); });
+      if (existente) {
+        askConfirm('Já existe o perfil "' + existente.nome + '". Substituir as notas dele pelas do arquivo?', {
+          yesLabel: "Substituir",
+          onYes: function () {
+            existente.data = data;
+            wrap.activeId = existente.id;
+            state = existente.data;
+            view = state.periodos[0].id;
+            save();
+            renderProfiles();
+            render();
+            toast("Perfil substituído.");
+          }
+        });
+      } else {
+        addProfile(nome, data);
+        toast('Perfil "' + nome + '" importado.');
+      }
+    };
+    rd.onerror = function () { toast("Não foi possível ler o arquivo."); };
+    rd.readAsText(f);
+  });
+
+  document.getElementById("btn-exportar").addEventListener("click", function () {
+    var p = activeProfile();
+    var json = JSON.stringify({ tipo: "controle-notas-perfil", nome: p.nome, data: p.data }, null, 2);
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([json], { type: "application/json" }));
+    a.download = "notas-" + p.nome.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + ".json";
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    toast("Arquivo exportado.");
   });
 
   // ---------- theme ----------
