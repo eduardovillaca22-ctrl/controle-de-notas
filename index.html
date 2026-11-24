@@ -514,6 +514,16 @@
     .tbl th { white-space: normal; }
     .tbl td.mat { min-width: 0; font-size: .8rem; }
     .tbl .opc, .tbl .tot { display: none; }
+    /* cabe na largura do celular, sem arrastar para os lados */
+    .tbl-wrap { overflow-x: hidden; }
+    table.tbl { table-layout: fixed; font-size: .74rem; }
+    .tbl th, .tbl td { padding: 7px 3px; }
+    .tbl th:first-child, .tbl td:first-child { padding-left: 8px; width: 31%; }
+    .tbl th:last-child, .tbl td:last-child { padding-right: 8px; }
+    .tbl th { font-size: .56rem; letter-spacing: .02em; overflow-wrap: normal; word-break: normal; }
+    .tbl td { white-space: normal; overflow-wrap: anywhere; }
+    .tbl td.mat { font-size: .74rem; line-height: 1.25; hyphens: auto; }
+    .tbl td.act { width: 34px; padding: 2px 4px; }
   }
   .per-item .check { flex: 0 0 auto; font-size: .78rem; white-space: nowrap; }
 
@@ -1387,7 +1397,7 @@
         var c = l.c, p = c.total > 0 ? (c.obtidos / c.total) * 100 : 0;
         somaObt += c.obtidos; somaTot += c.total;
         var st = c.obtidos >= c.metaPts ? "ok" : "fora";
-        return '<tr class="' + st + '"><td class="mat">' + esc(l.m.nome) + "</td>" +
+        return '<tr class="' + st + '"><td class="mat">' + esc(l.m.nome).replace(/\//g, "/<wbr>") + "</td>" +
           '<td class="n"><b>' + fmt(c.obtidos) + "</b></td>" +
           '<td class="n muted">' + fmt(c.total) + "</td>" +
           '<td class="n t-' + st + '">' + pct(p) + "%</td>" +
@@ -1425,7 +1435,7 @@
       var c = l.c, st = c.status, passou = st === "ok";
       var precisa = passou ? "—" : (c.necessarioPct === null ? "—" : pct(Math.ceil(c.necessarioPct * 10) / 10) + "%");
       var clsPrecisa = passou ? "muted" : (c.necessarioPct !== null && c.necessarioPct >= 40 ? "t-fora" : "t-risco");
-      return '<tr class="' + st + '"><td class="mat">' + esc(l.m.nome) + "</td>" +
+      return '<tr class="' + st + '"><td class="mat">' + esc(l.m.nome).replace(/\//g, "/<wbr>") + "</td>" +
         '<td class="n"><b>' + fmt(c.obtidos) + '</b><span class="muted tot"> / ' + fmt(c.total) + "</span></td>" +
         '<td class="n ' + (passou ? "t-ok" : "t-" + st) + '">' + (passou ? '✓<span class="tot"> passou</span>' : fmt(c.faltaPts)) + "</td>" +
         '<td class="n">' + fmt(c.emJogo) + "</td>" +
