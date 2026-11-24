@@ -636,13 +636,6 @@
 
   <section class="resumo" id="resumo" aria-label="Quanto falta por matéria"></section>
 
-  <div class="legend" id="legend" aria-hidden="true">
-    <span><i class="swatch sw-obt"></i> pontos obtidos</span>
-    <span><i class="swatch sw-abr"></i> avaliações a fazer</span>
-    <span><i class="swatch sw-dist"></i> pontos a distribuir</span>
-    <span><i class="swatch sw-meta"></i> pontos para passar</span>
-  </div>
-
   <main class="cards" id="cards"></main>
 </div>
 
@@ -1128,6 +1121,7 @@
     // o aparelho lembra a última ficha escolhida
     dono = pid;
     saveSync();
+    aplicarTemaSalvo();
     state = p.data;
     view = "ano";
     saveLocal();
@@ -1156,6 +1150,7 @@
     if (!ids.length) return;
     // cada aparelho abre na última ficha escolhida nele
     if (dono && profileById(dono)) { wrap.activeId = dono; state = activeProfile().data; }
+    aplicarTemaSalvo();
     ids.forEach(function (id) { fichas[id].status = "enviando"; });
     renderFichas();
     renderSaveState();
@@ -1273,7 +1268,7 @@
     if (view !== "ano" && !periodExists) view = state.periodos[0].id;
 
     var buscando = renderBusca();
-    ["tabs-row", "tiles", "resumo", "legend", "cards"].forEach(function (id) {
+    ["tabs-row", "tiles", "resumo", "cards"].forEach(function (id) {
       document.getElementById(id).style.display = buscando ? "none" : "";
     });
     if (buscando) return;
@@ -1282,7 +1277,6 @@
     renderTiles();
     renderResumo();
     var fechada = isFechada(view);
-    document.getElementById("legend").hidden = fechada;
     if (fechada) document.getElementById("cards").innerHTML = "";
     else renderCards();
   }
@@ -2097,17 +2091,22 @@
     var cor = tm === "rosa" ? "#fdeef3" : tm === "dark" ? "#12151b" : "#f5f6f9";
     document.querySelectorAll('meta[name="theme-color"]').forEach(function (m) { m.setAttribute("content", cor); });
   }
-  try {
-    var savedTheme = localStorage.getItem(LS_THEME);
-    if (savedTheme === "dark" || savedTheme === "light" || savedTheme === "rosa") {
-      document.documentElement.setAttribute("data-theme", savedTheme);
-    }
-  } catch (e) {}
-  applyThemeIcon();
+  // cada ficha (Dudu / Duda) guarda o próprio tema: trocar o tema numa não muda a outra
+  function temaKey() {
+    return (wrap && fichas[wrap.activeId]) ? LS_THEME + ":" + wrap.activeId : LS_THEME;
+  }
+  function aplicarTemaSalvo() {
+    var saved = null;
+    try { saved = localStorage.getItem(temaKey()) || localStorage.getItem(LS_THEME); } catch (e) {}
+    if (saved === "dark" || saved === "light" || saved === "rosa") document.documentElement.setAttribute("data-theme", saved);
+    else document.documentElement.removeAttribute("data-theme");
+    applyThemeIcon();
+  }
+  aplicarTemaSalvo();
   btnTheme.addEventListener("click", function () {
     var next = { light: "dark", dark: "rosa", rosa: "light" }[temaAtual()] || "light";
     document.documentElement.setAttribute("data-theme", next);
-    try { localStorage.setItem(LS_THEME, next); } catch (e) {}
+    try { localStorage.setItem(temaKey(), next); } catch (e) {}
     applyThemeIcon();
     toast(next === "rosa" ? "Tema rosa" : next === "dark" ? "Tema escuro" : "Tema claro");
   });
