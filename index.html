@@ -184,6 +184,30 @@
   .brand h1 { font-size: 1.7rem; }
   .topbar .spacer { flex: 1 1 auto; }
 
+  .busca { position: relative; display: flex; align-items: center; margin: 0 0 14px; }
+  .busca svg { position: absolute; left: 13px; width: 17px; height: 17px; color: var(--muted); pointer-events: none; }
+  .busca input { width: 100%; font: inherit; font-size: 16px; padding: 10px 40px 10px 40px; border-radius: 12px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+  .busca input:focus { outline: none; box-shadow: var(--focus); border-color: var(--accent); }
+  .busca input::-webkit-search-cancel-button { display: none; }
+  .busca button { position: absolute; right: 6px; width: 30px; height: 30px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font-size: 22px; line-height: 1; }
+  .busca button:hover { background: var(--surface-2); color: var(--ink); }
+  .busca-res { margin: 0 0 20px; }
+  .busca-res[hidden] { display: none; }
+  .busca-res .bres-info { color: var(--muted); font-size: .9rem; margin: 0 2px 10px; }
+  .bres-grupo { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; margin-bottom: 10px; overflow: hidden; box-shadow: var(--shadow); }
+  .bres-grupo h3 { font-size: 1rem; padding: 10px 14px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; gap: 8px; }
+  .bres-grupo h3 small { font-family: var(--font-body); font-weight: 500; color: var(--muted); font-size: .8rem; }
+  .bres-item { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 10px; padding: 9px 14px; border-top: 1px solid var(--line); }
+  .bres-item:first-of-type { border-top: 0; }
+  .bres-item .d { min-width: 0; }
+  .bres-item .d b { font-weight: 600; display: block; overflow-wrap: anywhere; }
+  .bres-item .d span { color: var(--muted); font-size: .82rem; }
+  .bres-item .n { font-family: var(--font-mono); font-size: .9rem; white-space: nowrap; text-align: right; }
+  .bres-item .n.pend { color: var(--muted); }
+  .bres-item button { width: 32px; height: 32px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--ink-2); display: inline-flex; align-items: center; justify-content: center; }
+  .bres-item button svg { width: 15px; height: 15px; }
+  mark.hl { background: color-mix(in srgb, var(--accent) 35%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }
+  :root[data-theme="rosa"] .busca input, :root[data-theme="rosa"] .bres-grupo { -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
   .conectar { margin: 0 0 16px; padding: 14px 16px; border-radius: 14px; border: 1px solid var(--accent); background: var(--accent-soft); }
   .conectar[hidden] { display: none; }
   .conectar p { margin: 4px 0 10px; color: var(--muted); font-size: .9rem; }
@@ -564,7 +588,15 @@
     </div>
   </section>
 
-  <div class="tabs-row">
+  <div class="busca">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    <input type="search" id="busca" placeholder="Pesquisar matéria, prova, trabalho, data…" autocomplete="off" enterkeyhint="search" aria-label="Pesquisar">
+    <button type="button" id="busca-limpar" aria-label="Limpar pesquisa" hidden>×</button>
+  </div>
+
+  <section class="busca-res" id="busca-res" aria-live="polite" hidden></section>
+
+  <div class="tabs-row" id="tabs-row">
     <div class="tabs" id="tabs" role="tablist" aria-label="Trimestres"></div>
   </div>
 
@@ -1208,6 +1240,12 @@
     var periodExists = state.periodos.some(function (p) { return p.id === view; });
     if (view !== "ano" && !periodExists) view = state.periodos[0].id;
 
+    var buscando = renderBusca();
+    ["tabs-row", "tiles", "resumo", "legend", "cards"].forEach(function (id) {
+      document.getElementById(id).style.display = buscando ? "none" : "";
+    });
+    if (buscando) return;
+
     renderTabs();
     renderTiles();
     renderResumo();
@@ -1216,6 +1254,93 @@
     if (fechada) document.getElementById("cards").innerHTML = "";
     else renderCards();
   }
+
+  // ---------- pesquisa ----------
+  var busca = "";
+  function semAcento(s) { return String(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(); }
+  // destaca os trechos encontrados (texto já escapado)
+  function destacar(txt, termos) {
+    var s = String(txt), base = semAcento(s), marcas = [];
+    termos.forEach(function (tm) {
+      var i = base.indexOf(tm);
+      while (tm && i >= 0) { marcas.push([i, i + tm.length]); i = base.indexOf(tm, i + tm.length); }
+    });
+    if (!marcas.length) return esc(s);
+    marcas.sort(function (a, b) { return a[0] - b[0]; });
+    var out = "", pos = 0;
+    marcas.forEach(function (mk) {
+      if (mk[0] < pos) return;
+      out += esc(s.slice(pos, mk[0])) + '<mark class="hl">' + esc(s.slice(mk[0], mk[1])) + "</mark>";
+      pos = mk[1];
+    });
+    return out + esc(s.slice(pos));
+  }
+  function renderBusca() {
+    var el = document.getElementById("busca-res");
+    var q = semAcento(busca.trim());
+    document.getElementById("busca-limpar").hidden = !busca;
+    if (!q) { el.hidden = true; el.innerHTML = ""; return false; }
+    var termos = q.split(/\s+/).filter(Boolean);
+    var perNome = {};
+    state.periodos.forEach(function (p) { perNome[p.id] = p.nome; });
+
+    var grupos = [], total = 0;
+    state.materias.forEach(function (m) {
+      var nomeBate = termos.every(function (tm) { return semAcento(m.nome).indexOf(tm) >= 0; });
+      var itens = m.avaliacoes.filter(function (a) {
+        // tudo que dá pra pesquisar numa avaliação: matéria, nome, etapa, data, nota e valor
+        var texto = semAcento([m.nome, a.descricao, perNome[a.periodoId] || "", fmtDate(a.data), a.data || "",
+          a.nota === null ? "pendente sem nota" : fmt(a.nota), "vale " + fmt(a.valor)].join(" "));
+        return termos.every(function (tm) { return texto.indexOf(tm) >= 0; });
+      });
+      if (!itens.length && !nomeBate) return;
+      total += itens.length;
+      grupos.push({ m: m, itens: itens });
+    });
+
+    el.hidden = false;
+    if (!grupos.length) {
+      el.innerHTML = '<p class="bres-info">Nada encontrado para “' + esc(busca.trim()) + '”.</p>';
+      return true;
+    }
+    var ordemPer = {};
+    state.periodos.forEach(function (p, i) { ordemPer[p.id] = i; });
+    el.innerHTML = '<p class="bres-info">' + total + (total === 1 ? " avaliação" : " avaliações") +
+      " em " + grupos.length + (grupos.length === 1 ? " matéria" : " matérias") + "</p>" +
+      grupos.map(function (g) {
+        var c = calcAno(g.m);
+        var itens = g.itens.slice().sort(function (a, b) { return (ordemPer[a.periodoId] - ordemPer[b.periodoId]) || 0; });
+        return '<div class="bres-grupo"><h3><span>' + destacar(g.m.nome, termos) + "</span><small>" +
+          fmt(c.obtidos) + " / " + fmt(c.total) + " no ano</small></h3>" +
+          (itens.length ? itens.map(function (a) {
+            var nota = a.nota === null ? '<span class="n pend">— / ' + fmt(a.valor) + "</span>"
+              : '<span class="n"><b>' + fmt(a.nota) + "</b> / " + fmt(a.valor) + "</span>";
+            return '<div class="bres-item"><div class="d"><b>' + destacar(a.descricao, termos) + "</b><span>" +
+              destacar(perNome[a.periodoId] || "", termos) + (a.data ? " · " + destacar(fmtDate(a.data), termos) : "") +
+              (a.nota === null ? " · pendente" : "") + "</span></div>" + nota +
+              '<button type="button" data-bres-edit="' + esc(a.id) + '" data-mat="' + esc(g.m.id) + '" aria-label="Editar ' + esc(a.descricao) + '">' + ICON_EDIT + "</button></div>";
+          }).join("") : '<div class="bres-item"><div class="d"><span>Nenhuma avaliação lançada.</span></div></div>') +
+          "</div>";
+      }).join("");
+    Array.prototype.forEach.call(el.querySelectorAll("[data-bres-edit]"), function (b) {
+      b.addEventListener("click", function () { openEditAval(b.getAttribute("data-mat"), b.getAttribute("data-bres-edit")); });
+    });
+    return true;
+  }
+  (function () {
+    var inp = document.getElementById("busca"), timer;
+    inp.addEventListener("input", function () {
+      clearTimeout(timer);
+      timer = setTimeout(function () { busca = inp.value; render(); }, 120);
+    });
+    inp.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") { inp.value = ""; busca = ""; render(); }
+      if (e.key === "Enter") inp.blur();
+    });
+    document.getElementById("busca-limpar").addEventListener("click", function () {
+      inp.value = ""; busca = ""; render(); inp.focus();
+    });
+  })();
 
   function isFechada(perId) {
     var p = state.periodos.find(function (x) { return x.id === perId; });
